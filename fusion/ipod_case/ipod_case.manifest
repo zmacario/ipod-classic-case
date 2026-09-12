@@ -1,0 +1,10 @@
+{
+  "autodeskProduct": "Fusion360",
+  "type": "script",
+  "author": "",
+  "description": {
+    "": "Parametric generator for the iPod Classic case"
+  },
+  "supportedOS": "windows|mac",
+  "editEnabled": true
+}
