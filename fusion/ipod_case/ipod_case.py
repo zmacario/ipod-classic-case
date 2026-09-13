@@ -28,7 +28,7 @@ def P3(x, y, z=0.0): return adsk.core.Point3D.create(x*MM, y*MM, z*MM)
 # ------------------------------------------------------------ user parameters
 PARAMS = [
     ('width',        '76.8 mm',   'outer width'),
-    ('height',         '112.2 mm',  'outer height'),
+    ('height',       '110.2 mm',  'outer height'),
     ('corner_r',     '7.5 mm',    'plan-view corner radius'),
     ('screw_d',      '3.15 mm',   'M3 clearance hole'),
     ('face_t',      '3.501 mm',  'face plate thickness'),
@@ -40,18 +40,24 @@ PARAMS = [
 ]
 
 # ------------------------------------------------------------------ geometry
-W, H, RC      = 76.8, 112.2, 7.5
+# The cavity is sized to the iPod; the outer height follows from it plus the
+# end walls, and everything positioned against the iPod is measured from the
+# cavity floor. Same derivation as generate_case.py.
+CAVITY_W, CAVITY_H, CAVITY_R = 62.2, 104.2, 6.0
+WALL_TOP, WALL_BOTTOM        = 3.0, 3.0          # bottom was 5.0 originally
+W, RC = 76.8, 7.5
+H     = CAVITY_H + WALL_TOP + WALL_BOTTOM        # 110.2
 SCREW_D        = 3.15
-SCREWS = [(5.00, 4.50), (71.80, 4.50), (5.00, 107.70), (71.80, 107.70),
-         (4.75, 56.10), (72.05, 56.10)]     # 4 corners + 2 mid side wall
+SCREWS = [(5.00, 4.50), (W - 5.00, 4.50), (5.00, H - 4.50), (W - 5.00, H - 4.50),
+          (4.75, H / 2.0), (W - 4.75, H / 2.0)]     # 4 corners + 2 mid side wall
 
 FACE_T, FACE_CHAMF_Z, FACE_CHAMF_SETBACK = 3.501, 1.679, 1.471
 COUNTERBORE_D, COUNTERBORE_DEPTH           = 6.0, 2.501
-SCREEN  = dict(w=51.518, h=39.922, r=2.378, cx=38.40, cy=84.35, ch_z=1.189, off=1.4805)
-WHEEL = dict(d=37.99, cx=38.40, cy=36.00, ch_z=0.884, d_out=50.14)
+SCREEN  = dict(w=51.518, h=39.922, r=2.378, cx=38.40, cy=WALL_BOTTOM + 79.35, ch_z=1.189, off=1.4805)
+WHEEL = dict(d=37.99, cx=38.40, cy=WALL_BOTTOM + 31.00, ch_z=0.884, d_out=50.14)
 
 FRAME_T = 14.0
-CAVITY     = dict(w=62.2, h=104.2, r=6.0, cx=38.40, cy=57.10)
+CAVITY     = dict(w=CAVITY_W, h=CAVITY_H, r=CAVITY_R, cx=W / 2.0, cy=WALL_BOTTOM + CAVITY_H / 2.0)
 JACK    = dict(d=10.0, x=61.743, z=7.29)
 DOCK    = dict(w=28.83, h=7.94, r=2.0, x=38.40, z=7.70)
 HOLD    = dict(w=14.0, h=5.0, r=1.5, x=21.84, z=7.29)   # 12.5 x 3.3 switch plus clearance; x set by test print
