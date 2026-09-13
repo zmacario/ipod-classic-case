@@ -166,9 +166,20 @@ About 69 g in PLA if printed solid (was ~101 g before the weight reduction).
 ## Regenerating
 
 ```bash
-pip install manifold3d numpy
-python3 generate_case.py            # writes into stl/
+python3 -m venv .venv && .venv/bin/pip install manifold3d numpy trimesh
+.venv/bin/python3 generate_case.py            # writes into stl/
+.venv/bin/python3 verify_case.py              # checks the result
 ```
+
+[`verify_case.py`](verify_case.py) rebuilds the three parts in memory and
+checks watertightness/topology, the waist's wall thickness, every corner
+screw's clearance, the rear pocket and hex floors, that face/frame/rear
+share the same outer silhouette, and that the assembled parts do not
+interfere. It replaces the one-off scratchpad scripts this project used to
+re-derive these checks after every change. A Claude Code subagent
+(`.claude/agents/ipod-case-reviewer.md`) runs it automatically, plus a
+judgment pass on whether the design still keeps the iPod secure and easy to
+handle, after any change made through Claude.
 
 The generator reads the two original STLs from `originals/`. It needs them:
 both plates carry a finger scallop along the side edges whose ends are not
