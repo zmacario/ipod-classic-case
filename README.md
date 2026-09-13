@@ -42,6 +42,10 @@ screen and click wheel to the bottom of deeper wells.
 An M3 × 20 now ends flush with the outer face, with 2.50 mm of thread engaged
 in a 2.40 mm nut. Assembled height went from 21.00 to 22.50 mm.
 
+This is what the tested build uses. An M3 × 18 would have allowed a thinner
+rear plate, but it could not be found in shops, so the rear stays at 5.00 mm to
+suit the M3 × 20.
+
 ### Weight reduction
 
 An earlier revision added two extra screws at mid height on the side walls,
