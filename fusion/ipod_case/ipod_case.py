@@ -54,7 +54,7 @@ FRAME_T = 14.0
 CAVITY     = dict(w=62.2, h=104.2, r=6.0, cx=38.40, cy=57.10)
 JACK    = dict(d=10.0, x=61.743, z=7.29)
 DOCK    = dict(w=28.83, h=7.94, r=2.0, x=38.40, z=7.70)
-HOLD    = dict(w=14.0, h=5.0, r=1.5, x=20.84, z=7.29)   # 12.5 x 3.3 switch plus clearance
+HOLD    = dict(w=14.0, h=5.0, r=1.5, x=21.84, z=7.29)   # 12.5 x 3.3 switch plus clearance; x set by test print
 
 # Wall openings flare from the cavity outwards with the same slope as the
 # screen window chamfer. Each setback is the largest the surroundings allow

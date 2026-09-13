@@ -77,11 +77,13 @@ JACK_CHAMF, DOCK_CHAMF, HOLD_CHAMF = 0.60, 1.20, 1.20
 #   x = centre, measured from the same reference side as the jack hole
 #   z = centre through the thickness        r = corner radius
 # Measured off the reference iPod: switch 12.50 x 3.30, and a 31.50 mm gap
-# between the switch edge and the jack hole edge. With the jack centre at
-# x=61.743 (taken from the mesh) and a 6.3 mm jack hole, the switch centre
-# lands at x=20.84. The window is 14.0 x 5.0, leaving 0.75 mm each side so a
-# fingernail can reach the switch at the bottom of the 3 mm wall.
-HOLD = dict(w=14.0, h=5.0, x=20.84, z=7.29, r=1.5)
+# between the switch edge and the jack hole edge. Assuming a 6.3 mm jack hole
+# put the centre at x=20.84; a test print showed the window sat 1.0 mm too far
+# from the jack, so it was moved to x=21.84. (The effective jack hole on the
+# reference unit is therefore smaller than assumed.) The window is 14.0 x 5.0,
+# leaving 0.75 mm each side so a fingernail can reach the switch at the bottom
+# of the 3 mm wall.
+HOLD = dict(w=14.0, h=5.0, x=21.84, z=7.29, r=1.5)
 
 # ---- REAR PLATE -----------------------------------------------------------
 REAR_T             = 5.000         # was 3.50; thickened so an M3x20 ends flush
