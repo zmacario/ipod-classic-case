@@ -10,7 +10,8 @@ these changes:
   * a thin waist on all three parts, with material only where the screws need it
   * a bevel along each side edge of both plates, between the corner pads only
   * a lightening pocket in the rear plate, with both of its edges bevelled
-  * nut pockets that open to the corner instead of leaving a 0.33 mm wall
+  * nut pockets and screw-head counterbores that open to the corner instead of
+    leaving a 0.33 / 0.59 mm wall
 
 All dimensions in millimetres. Edit the parameters and run again:
 
@@ -154,17 +155,18 @@ REAR_T             = 5.000         # was 3.50; thickened so an M3x20 ends flush
 HEX_AF             = 5.846         # hex socket across flats (M3 nut = 5.5)
 HEX_DEPTH          = 2.500         # nut pocket depth
 
-# The corner screws sit so close to the rounded corner that each nut pocket
-# left a 0.33 mm wall to the outside -- thinner than one extrusion line, right
-# where the nut bears when tightened. Thickening it would need a squarer corner
-# or a screw moved towards the cavity, and both change the frame. Instead, any
-# wall between a nut pocket and the outside thinner than NUT_WEB_MIN is cut
-# away down to the nut's own seat: the pocket opens to the corner through a
-# flat entrance at the nut plane, and every wall left around it is at least
-# NUT_WEB_MIN thick. The rest of the hex still keeps the nut from turning
-# (4 of its 6 corners stay walled), and the entrance's throat (4.7 mm) is
-# narrower than the nut, so the nut cannot slide out of it either.
-NUT_WEB_MIN        = 1.30          # 1.2 mm (three 0.4 mm lines) plus margin
+# The corner screws sit so close to the rounded corner that the pockets around
+# them left walls to the outside thinner than one extrusion line: 0.33 mm at
+# each rear nut pocket, 0.59 mm at each face screw-head counterbore.
+# Thickening them would need a squarer corner or a screw moved towards the
+# cavity, and both change the frame. Instead, any wall between such a pocket
+# and the outside thinner than CORNER_WEB_MIN is cut away down to the pocket's
+# own floor (see corner_entrance()): the pocket opens to the corner through a
+# flat entrance, and every wall left around it is at least CORNER_WEB_MIN.
+# A nut still cannot turn (4 of the hex's 6 corners stay walled) or slide out
+# (the entrance's 4.7 mm throat is narrower than the nut); a screw head still
+# bears on the whole counterbore floor, which the entrance does not touch.
+CORNER_WEB_MIN     = 1.30          # 1.2 mm (three 0.4 mm lines) plus margin
 
 # ============================================================================
 # HELPERS
@@ -301,38 +303,35 @@ def side_bevels(t):
     return both - prism(footprint, -1.0, t + ext + 1.0)
 
 
-def nut_pocket(x, y):
-    """Plan-view outline of one rear nut pocket: the hex, plus a flat entrance
-    through the wall between it and the outside wherever that wall is thinner
-    than NUT_WEB_MIN (see above).
+def corner_entrance(pts, x, y):
+    """Flat entrance opening a convex pocket (outline `pts`, around the screw
+    at x, y) to its corner, wherever the wall between them would be thinner
+    than CORNER_WEB_MIN (see above). Empty if no wall is that thin.
 
     The screw sits inside the corner arc, so wall thickness is measured along
     rays from the arc's centre -- normal to the outline there. The entrance is
-    the wedge between the two rays where that thickness equals NUT_WEB_MIN,
-    beyond the hex. Its sides meet the outline square on, and the walls left
-    either side are NUT_WEB_MIN or thicker: from a point inside the arc, the
-    nearest outline point is along that same ray. (A morphological opening
-    was tried first: it leaves zero-thickness cusps where each remaining wall
-    ends.)
+    the wedge between the two rays where that thickness equals CORNER_WEB_MIN,
+    beyond the pocket. Its sides meet the outline square on, and the walls
+    left either side are CORNER_WEB_MIN or thicker: from a point inside the
+    arc, the nearest outline point is along that same ray. (A morphological
+    opening was tried first: it leaves zero-thickness cusps where each
+    remaining wall ends.)
 
-    The part of the wedge nearer the arc centre than the hex is excluded
-    with a hull of the centre and a hex shrunk by OVERLAP, so the entrance
-    overlaps the hex instead of meeting it edge to edge -- with other
-    NUT_WEB_MIN values that shared edge left a zero-thickness fin.
+    The part of the wedge nearer the arc centre than the pocket is excluded
+    with a hull of the centre and the pocket shrunk by 2 * OVERLAP, so the
+    entrance overlaps the pocket instead of meeting it edge to edge -- for
+    some CORNER_WEB_MIN values that shared edge left a zero-thickness fin.
     """
-    hexcs = hexagon(HEX_AF, x, y)
-    rc = HEX_AF / math.sqrt(3.0)
     ccx, ccy = min(PAD_CENTERS, key=lambda c: math.hypot(c[0] - x, c[1] - y))
-    verts = [(x + rc * math.cos(math.radians(90 + 60 * i)),
-              y + rc * math.sin(math.radians(90 + 60 * i))) for i in range(6)]
+    n = len(pts)
 
     def wall(phi):
-        """CORNER_R minus the hex's far side, along the ray at phi; None if
-        the ray misses the hex."""
+        """CORNER_R minus the pocket's far side, along the ray at phi; None
+        if the ray misses the pocket."""
         ux, uy = math.cos(phi), math.sin(phi)
         far = None
-        for i in range(6):
-            (ax, ay), (bx, by) = verts[i], verts[(i + 1) % 6]
+        for i in range(n):
+            (ax, ay), (bx, by) = pts[i], pts[(i + 1) % n]
             ex, ey = bx - ax, by - ay
             den = ux * ey - uy * ex
             if abs(den) < 1e-12:
@@ -344,41 +343,56 @@ def nut_pocket(x, y):
         return None if far is None else CORNER_R - far
 
     toward = math.atan2(y - ccy, x - ccx)          # arc centre -> screw -> corner
-    steps = [toward + math.radians(0.25 * k) for k in range(-180, 181)]
-    limit = NUT_WEB_MIN
-    thin = [phi for phi in steps if (wall(phi) is not None and wall(phi) < limit)]
+    step = math.radians(0.25)
+    steps = [toward + step * k for k in range(-180, 181)]
+    thin = [phi for phi in steps if (wall(phi) is not None and wall(phi) < CORNER_WEB_MIN)]
     if not thin:
-        return hexcs
+        return CrossSection()
     # the ray has to stay on the arc itself (the corner quadrant) for CORNER_R
     # to be the outline distance
     if not all(math.cos(p) * (x - ccx) >= 0 and math.sin(p) * (y - ccy) >= 0 for p in thin):
-        raise ValueError('nut pocket entrance at (%.2f, %.2f) would run past the corner arc; '
-                         'NUT_WEB_MIN is too large for this corner' % (x, y))
+        raise ValueError('corner entrance at (%.2f, %.2f) would run past the corner arc; '
+                         'CORNER_WEB_MIN is too large for this pocket' % (x, y))
 
     def edge(inside, outside):
         for _ in range(50):
             mid = 0.5 * (inside + outside)
             w = wall(mid)
-            if w is not None and w < limit:
+            if w is not None and w < CORNER_WEB_MIN:
                 inside = mid
             else:
                 outside = mid
         return outside
-    step = math.radians(0.25)
     phi1 = edge(min(thin), min(thin) - step)
     phi2 = edge(max(thin), max(thin) + step)
     reach = 3.0 * CORNER_R
-    wedge = CrossSection([[(ccx, ccy),
-                           (ccx + reach * math.cos(phi1), ccy + reach * math.sin(phi1)),
-                           (ccx + reach * math.cos(phi2), ccy + reach * math.sin(phi2))]])
+    a = (ccx + reach * math.cos(phi1), ccy + reach * math.sin(phi1))
+    b = (ccx + reach * math.cos(phi2), ccy + reach * math.sin(phi2))
+    wedge = CrossSection([[(ccx, ccy), a, b]])
     if wedge.area() == 0.0:                         # wound the other way round
-        wedge = CrossSection([[(ccx, ccy),
-                               (ccx + reach * math.cos(phi2), ccy + reach * math.sin(phi2)),
-                               (ccx + reach * math.cos(phi1), ccy + reach * math.sin(phi1))]])
-    shrunk = [(x + (vx - x) * (1.0 - 2.0 * OVERLAP / rc), y + (vy - y) * (1.0 - 2.0 * OVERLAP / rc))
-              for (vx, vy) in verts]
-    inner = CrossSection.hull_points(shrunk + [(ccx, ccy)])
-    return hexcs + (wedge - inner)
+        wedge = CrossSection([[(ccx, ccy), b, a]])
+    shrunk = []
+    for (px, py) in pts:
+        d = math.hypot(px - x, py - y)
+        k = 1.0 - 2.0 * OVERLAP / d
+        shrunk.append((x + (px - x) * k, y + (py - y) * k))
+    return wedge - CrossSection.hull_points(shrunk + [(ccx, ccy)])
+
+
+def nut_pocket(x, y):
+    """Plan-view outline of one rear nut pocket: the hex, plus its corner
+    entrance."""
+    rc = HEX_AF / math.sqrt(3.0)
+    pts = [(x + rc * math.cos(math.radians(90 + 60 * i)),
+            y + rc * math.sin(math.radians(90 + 60 * i))) for i in range(6)]
+    return hexagon(HEX_AF, x, y) + corner_entrance(pts, x, y)
+
+
+def counterbore(x, y):
+    """Plan-view outline of one face screw-head counterbore: the circle, plus
+    its corner entrance."""
+    circle = CrossSection.circle(COUNTERBORE_D / 2.0).translate((x, y))
+    return circle + corner_entrance([tuple(p) for p in circle.to_polygons()[0]], x, y)
 
 
 def rear_pocket():
@@ -448,9 +462,8 @@ def face():
     for (x, y) in SCREWS:
         body = body - Manifold.cylinder(FACE_T + 4, SCREW_D/2, SCREW_D/2, 0, False)\
                               .translate((x, y, -2))
-        body = body - Manifold.cylinder(COUNTERBORE_DEPTH + 2, COUNTERBORE_D/2,
-                                        COUNTERBORE_D/2, 0, False)\
-                              .translate((x, y, FACE_T - COUNTERBORE_DEPTH))
+        body = body - Manifold.extrude(counterbore(x, y), COUNTERBORE_DEPTH + 2)\
+                              .translate((0, 0, FACE_T - COUNTERBORE_DEPTH))
     return body
 
 
