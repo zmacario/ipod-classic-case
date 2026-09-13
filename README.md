@@ -159,9 +159,10 @@ full-size iPod (61.8 × 103.5 mm); the 14 mm depth is what picks the model:
 - **Classic 6th/7th gen 10.5 mm models** — 3.5 mm of slack, the device rattles
 
 The Hold window was first placed from caliper measurements, then **corrected
-by 1.0 mm after a test print of the frame** on a Classic 6th gen 160 GB. That
-unit's switch is what it matches; if yours does not line up, adjust
-`HOLD['x']` and regenerate.
+after test prints of the frame** on a Classic 6th gen 160 GB: 1.0 mm towards
+the headphone jack, and later 1.0 mm towards the face plate (centre z=8.29 of
+14, away from the rear plate). That unit's switch is what it matches; if yours
+does not line up, adjust `HOLD['x']` / `HOLD['z']` and regenerate.
 
 ## Hardware
 
@@ -215,8 +216,8 @@ About 67 g in PLA if printed solid (was ~101 g before the weight reduction).
 - **Frame:** stands on the bed. It needs a 28.8 mm bridge over the dock cutout
   and a 14 mm one over the Hold window. No supports needed on most printers.
 - The frame's port positions are not symmetric through the thickness (jack at
-  7.29, dock at 7.70 of 14), so keep the STL's z=0 face towards the same plate
-  every time.
+  7.29, dock at 7.70, Hold at 8.29 of 14, measured from the rear plate), so the
+  STL's z=0 face — the one on the bed — always goes against the rear plate.
 
 ## Regenerating
 

@@ -147,8 +147,9 @@ JACK_CHAMF, DOCK_CHAMF, HOLD_CHAMF = 0.60, 1.20, 1.20
 # from the jack, so it was moved to x=21.84. (The effective jack hole on the
 # reference unit is therefore smaller than assumed.) The window is 14.0 x 5.0,
 # leaving 0.75 mm each side so a fingernail can reach the switch at the bottom
-# of the 3 mm wall.
-HOLD = dict(w=14.0, h=5.0, x=21.84, z=7.29, r=1.5)
+# of the 3 mm wall. The same print showed the window also sat 1.0 mm too far
+# towards the rear plate, so its centre went from z=7.29 (the jack's) to 8.29.
+HOLD = dict(w=14.0, h=5.0, x=21.84, z=8.29, r=1.5)
 
 # ---- REAR PLATE -----------------------------------------------------------
 REAR_T             = 5.000         # was 3.50; thickened so an M3x20 ends flush
