@@ -77,8 +77,10 @@ full-size iPod (61.8 × 103.5 mm); the 14 mm depth is what picks the model:
 - **iPod Classic 6th gen 160 GB (2007)** — 13.5 mm, 0.5 mm slack (tested)
 - **Classic 6th/7th gen 10.5 mm models** — 3.5 mm of slack, the device rattles
 
-The Hold window position was derived for a specific unit. If your Hold switch
-does not line up, adjust `HOLD['x']` and regenerate.
+The Hold window was first placed from caliper measurements, then **corrected
+by 1.0 mm after a test print of the frame** on a Classic 6th gen 160 GB. That
+unit's switch is what it matches; if yours does not line up, adjust
+`HOLD['x']` and regenerate.
 
 ## Hardware
 
