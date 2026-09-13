@@ -13,10 +13,16 @@ AFTER RUNNING
   The PROFILES are drawn from explicit coordinates (no sketch dimensions): to
   make one parametric, open the sketch and add the dimensions yourself.
 
-KNOWN DIFFERENCE FROM THE STLs
+KNOWN DIFFERENCES FROM THE STLs
   The side finger scallop comes out here as a loft between two profiles with
   circular ends. On the original the ends are slightly flatter (up to ~0.6 mm
   off). generate_case.py is exact on that detail.
+
+  The frame here still lightens its side walls with a blind pocket
+  (frame_pocket). generate_case.py replaced that with a thin waist that
+  only keeps full wall thickness around each screw -- porting that non-convex
+  outline and its stepped chamfer to Fusion's sketch/loft API was left for a
+  future pass. The rear plate's pocket (rear_pocket) is unaffected.
 """
 
 import adsk.core, adsk.fusion, traceback, math
