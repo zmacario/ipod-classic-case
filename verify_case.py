@@ -12,6 +12,8 @@ checks the things a slicer or an assembly will not forgive:
   * the rear plate's hex/lightening pocket floors are at their design depth
   * face and rear follow the frame's outline: identical to it at the face
     that seats against the frame, and never sticking out past it
+  * both plates bevel the whole of each side edge between the corner pads,
+    at the designed size, and leave the pads' own edges untouched
   * the three parts do not interfere when assembled, and face/rear seat
     flush against the frame with no gap
 
@@ -50,15 +52,7 @@ def probe_volume(man, x0, x1, y0, y1, z0, z1):
 
 
 def build_parts():
-    base = gc.__file__.rsplit('/', 1)[0]
-    face = gc.face(grip=lambda b, src=f'{base}/originals/simple-ipod-case-face.stl',
-                   dz=gc.FACE_T - 3.501, z_top=gc.FACE_T:
-                   gc.apply_grip_scallops(b, src, dz, z_top))
-    frame = gc.frame()
-    rear = gc.rear(grip=lambda b, src=f'{base}/originals/simple-ipod-case-rear.stl',
-                   dz=gc.REAR_T - 3.500, z_top=gc.REAR_T:
-                   gc.apply_grip_scallops(b, src, dz, z_top))
-    return {'face': face, 'thick-frame': frame, 'rear': rear}
+    return {'face': gc.face(), 'thick-frame': gc.frame(), 'rear': gc.rear()}
 
 
 def watertight(man):
@@ -159,16 +153,15 @@ def main():
 
     print('\n=== 5) tampas acompanham o contorno do frame ===')
     # The frame is the reference. Comparing bounding boxes is not enough:
-    # plates that overhung the frame by 4.3 mm along the grip band passed a
-    # bbox check, because the corner pads already set the same extremes.
-    # So full outlines are compared, three ways:
+    # plates that overhung the frame by 4.3 mm along the side passed a bbox
+    # check, because the corner pads already set the same extremes. So full
+    # outlines are compared, three ways:
     #   a) at the face that seats on the frame, against the frame's own
     #      seating face (z = FRAME_T for the face plate, z = 0 for the rear)
-    #   b) at several heights, outside GRIP_BOXES, the plate must still be
-    #      exactly the frame's outline -- catches a notch or a bevel coming
-    #      back anywhere else, which (a) and (c) cannot see
+    #   b) at several heights, everywhere except the side bevel band, the
+    #      plate must be exactly the frame's outline (the bevel itself, and
+    #      that it spares the pads, is checked in 3D in 5b)
     #   c) no plate volume anywhere outside the frame's outline
-    # Inside GRIP_BOXES the plates are allowed to recede (the scallop).
     def outer_outline(cs):
         """Outer boundaries only (counter-clockwise contours), holes dropped."""
         keep = []
@@ -182,12 +175,17 @@ def main():
     def xor_area(a, b):
         return (a - b).area() + (b - a).area()
 
-    TOL_AREA, TOL_VOL = 0.5, 0.5        # simplify() noise measures < 0.1
-    grip_mask = None
-    for (x0, x1, y0, y1) in gc.GRIP_BOXES:
-        sq = CrossSection.square((x1 - x0, y1 - y0)).translate((x0, y0))
-        grip_mask = sq if grip_mask is None else grip_mask + sq
+    # The bevel band, derived here rather than read from the generator: the
+    # straight waist edge x_w, and the y where each pad's arc reaches it.
+    x_w = (gc.OUTER_W - gc.OUTER_W_THIN) / 2.0
+    dy = np.sqrt(gc.PAD_R**2 - (gc.CORNER_R - x_w)**2)
+    span0, span1 = gc.CORNER_R + dy, gc.OUTER_H - gc.CORNER_R - dy
+    bevel_w = gc.SIDE_BEVEL_SLOPE * gc.SIDE_BEVEL_H
+    strip_w = x_w + bevel_w + 0.5
+    band = CrossSection.square((strip_w + 1.0, span1 - span0)).translate((-1.0, span0)) \
+         + CrossSection.square((strip_w + 1.0, span1 - span0)).translate((gc.OUTER_W - strip_w, span0))
 
+    TOL_AREA, TOL_VOL = 0.5, 0.5        # simplify() noise measures < 0.1
     seat = {'face': outer_outline(frame.slice(gc.FRAME_T - 0.05)),
             'rear': outer_outline(frame.slice(0.05))}
     frame_fp = outer_outline(frame.project())
@@ -197,12 +195,69 @@ def main():
         check(f'{name:12s} contorno na face de contato == frame', x < TOL_AREA,
               f'diferenca {x:.3f} mm2')
         for z in (0.05, t / 2.0, t - 0.05):
-            x = xor_area(outer_outline(plate.slice(z)) - grip_mask, frame_fp - grip_mask)
-            check(f'{name:12s} z={z:4.2f} contorno == frame fora do grip', x < TOL_AREA,
+            x = xor_area(outer_outline(plate.slice(z)) - band, frame_fp - band)
+            check(f'{name:12s} z={z:4.2f} ressaltos e topo/base == frame', x < TOL_AREA,
                   f'diferenca {x:.3f} mm2')
         outside = (plate - gc.prism(frame_fp, -1.0, t + 1.0)).volume()
         check(f'{name:12s} nada para fora do contorno do frame', outside < TOL_VOL,
               f'{outside:.3f} mm3 para fora')
+
+    print('\n=== 5b) chanfro lateral das tampas, so entre os ressaltos ===')
+    # Sampling edges at a handful of points let a 10 mm gap in the bevel, a
+    # notch inside a pad and a cut that ignored the pad arc all pass. So each
+    # plate is compared in 3D against the same plate built with no bevel, and
+    # what was removed must be exactly the theoretical bevel -- built here
+    # from the parameters, not by calling the generator's own cutter:
+    #   * nothing added
+    #   * nothing removed outside the theoretical bevel (slot, extra depth)
+    #   * nothing of the theoretical bevel left in place (gap, short end)
+    #   * nothing removed inside any pad disc
+    corners = [(gc.CORNER_R, gc.CORNER_R), (gc.OUTER_W - gc.CORNER_R, gc.CORNER_R),
+               (gc.CORNER_R, gc.OUTER_H - gc.CORNER_R),
+               (gc.OUTER_W - gc.CORNER_R, gc.OUTER_H - gc.CORNER_R)]
+    discs = None
+    for (cx_, cy_) in corners:
+        d = CrossSection.circle(gc.PAD_R).translate((cx_, cy_))
+        discs = d if discs is None else discs + d
+
+    def theoretical_bevel(t):
+        sl, h = gc.SIDE_BEVEL_SLOPE, gc.SIDE_BEVEL_H
+        tri = CrossSection([[(x_w - 1.0, t - h - 1.0 / sl),
+                             (x_w + sl * h + sl, t + 1.0),
+                             (x_w - 1.0, t + 1.0)]])
+        # extrude along +z, then turn so the extrusion runs along +y and the
+        # triangle's second coordinate becomes world z
+        left = Manifold.extrude(tri, span1 - span0).rotate((90, 0, 0)).translate((0, span1, 0))
+        both = left + left.mirror((1, 0, 0)).translate((gc.OUTER_W, 0, 0))
+        return both - Manifold.extrude(discs, t + 4.0).translate((0, 0, -1.0))
+
+    saved = gc.side_bevels
+    gc.side_bevels = lambda t: Manifold()
+    try:
+        plain = {'face': gc.face(), 'rear': gc.rear()}
+    finally:
+        gc.side_bevels = saved
+
+    TOL = 0.05                                   # mm3; tessellation noise < 0.01
+    for name, t in (('face', gc.FACE_T), ('rear', gc.REAR_T)):
+        plate, ref = parts[name], plain[name]
+        wedge = theoretical_bevel(t)
+        bb = wedge.bounding_box()
+        z_lo = t - gc.SIDE_BEVEL_H - 1.0 / gc.SIDE_BEVEL_SLOPE
+        if not (abs(bb[2] - z_lo) < 0.01 and abs(bb[5] - (t + 1.0)) < 0.01
+                and abs(bb[1] - span0) < 0.01 and abs(bb[4] - span1) < 0.01):
+            check(f'{name:12s} chanfro teorico mal posicionado', False, str(bb))
+            continue
+        removed = ref - plate
+        added = (plate - ref).volume()
+        extra = (removed - wedge).volume()
+        missing = ((ref ^ wedge) - removed).volume()
+        in_pads = (removed ^ Manifold.extrude(discs, t + 4.0).translate((0, 0, -1.0))).volume()
+        check(f'{name:12s} chanfro nao acrescenta material', added < TOL, f'{added:.4f} mm3')
+        check(f'{name:12s} nada removido fora do chanfro teorico', extra < TOL, f'{extra:.4f} mm3')
+        check(f'{name:12s} chanfro completo nas 2 laterais, de ressalto a ressalto',
+              missing < TOL, f'{missing:.4f} mm3 faltando de {(ref ^ wedge).volume():.3f}')
+        check(f'{name:12s} nada removido dos ressaltos', in_pads < TOL / 5, f'{in_pads:.5f} mm3')
 
     print('\n=== 6) interferencia e encaixe na montagem ===')
     face_mounted = parts['face'].translate((0, 0, gc.FRAME_T))

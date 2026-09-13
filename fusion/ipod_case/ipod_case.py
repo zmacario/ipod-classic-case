@@ -14,9 +14,9 @@ AFTER RUNNING
   make one parametric, open the sketch and add the dimensions yourself.
 
 KNOWN DIFFERENCES FROM THE STLs
-  The side finger scallop comes out here as a loft between two profiles with
-  circular ends. On the original the ends are slightly flatter (up to ~0.6 mm
-  off). generate_case.py is exact on that detail.
+  The plates here still carry the old finger-grip scallop (grip_scallop: a
+  loft over the lower half of each side). generate_case.py replaced it with
+  a bevel along each whole side edge, between the corner pads only.
 
   The frame here still lightens its side walls with a blind pocket
   (frame_pocket). generate_case.py replaced that with a thin waist that
