@@ -11,6 +11,9 @@ checks the things a slicer or an assembly will not forgive:
     outer edge
   * the rear plate's hex/lightening pocket floors are at their design depth,
     and the pocket has its rim and floor edges bevelled, clear of the nuts
+  * every nut pocket keeps >= 1.2 mm of wall to the outside or opens to its
+    corner through an entrance that is a flat, vertical cut from the nut seat
+    up, leaving no material under 1.2 mm and 4 hex corners walled
   * face and rear follow the frame's outline: identical to it at the face
     that seats against the frame, and never sticking out past it
   * both plates bevel the whole of each side edge between the corner pads,
@@ -54,6 +57,17 @@ def probe_volume(man, x0, x1, y0, y1, z0, z1):
 
 def build_parts():
     return {'face': gc.face(), 'thick-frame': gc.frame(), 'rear': gc.rear()}
+
+
+def outer_outline_any(cs):
+    """Outer boundaries only (counter-clockwise contours), holes dropped."""
+    keep = []
+    for p in cs.to_polygons():
+        n = len(p)
+        area2 = sum(p[i][0]*p[(i+1) % n][1] - p[(i+1) % n][0]*p[i][1] for i in range(n))
+        if area2 > 0:
+            keep.append([tuple(v) for v in p])
+    return CrossSection(keep)
 
 
 def watertight(man):
@@ -213,12 +227,98 @@ def main():
     for _ in range(25):                          # largest clear offset of the mouth
         g = (lo + hi) / 2.0
         grown = mouth.offset(g, JoinType.Round)
-        if (grown ^ others).area() < 1e-6 and (grown - outline).area() < 1e-6:
+        clear_holes = others is None or (grown ^ others).area() < 1e-6
+        if clear_holes and (grown - outline).area() < 1e-6:
             lo = g
         else:
             hi = g
     check('parede entre a boca do bolsao e sextavados/borda >= 2.0 mm', lo >= 2.0,
           f'{lo:.2f} mm na face externa')
+
+    print('\n=== 4c) entradas dos encaixes de porca (traseira) ===')
+    # Each nut pocket opens to its corner through a flat entrance wherever the
+    # wall to the outside would be too thin. Checked against the rear built
+    # with plain hex pockets, and on the part itself:
+    #   * nothing added, nothing removed below the nut seat or away from the
+    #     screws
+    #   * the entrance is a straight vertical prism from the seat to the outer
+    #     face: the same plan-view cut at every height, so no slope, lip or step
+    #   * no material near a pocket thinner than 1.2 mm at any height -- found
+    #     as what a 1.2 mm opening removes, which catches a skin closing the
+    #     mouth or a notch thinning a wall from outside; a plain corner only
+    #     leaves ~0.1 mm2, a real thin wall far more
+    #   * every wall still standing around the hex >= 1.2 mm to the outline
+    #   * at least 4 of the 6 hex corners still walled, so the nut cannot turn
+    saved_np = gc.nut_pocket
+    gc.nut_pocket = lambda x_, y_: gc.hexagon(gc.HEX_AF, x_, y_)
+    try:
+        plain_hex = gc.rear()
+    finally:
+        gc.nut_pocket = saved_np
+    seat_z = gc.REAR_T - gc.HEX_DEPTH
+    rc_ = gc.HEX_AF / np.sqrt(3.0)
+    removed = plain_hex - rear
+    added = (rear - plain_hex).volume()
+    below = (removed ^ Manifold.cube((gc.OUTER_W + 20, gc.OUTER_H + 20, seat_z + 1.0 - 0.01))
+             .translate((-10, -10, -1.0))).volume()
+    near = None
+    for (sx, sy) in gc.SCREWS:
+        d_ = CrossSection.circle(rc_ + 3.0).translate((sx, sy))
+        near = d_ if near is None else near + d_
+    away = (removed - Manifold.extrude(near, gc.REAR_T + 4.0).translate((0, 0, -2.0))).volume()
+    check('entradas nao acrescentam material', added < 0.01, f'{added:.4f} mm3')
+    check('nada removido abaixo do assento da porca', below < 0.01, f'{max(below, 0.0):.4f} mm3')
+    check('nada removido longe dos parafusos', away < 0.01, f'{away:.4f} mm3')
+
+    heights = (seat_z + 0.02, seat_z + gc.HEX_DEPTH / 2.0, gc.REAR_T - 0.02)
+    cuts = [removed.slice(z) for z in heights]
+    steps_ = max((cuts[0] - c).area() + (c - cuts[0]).area() for c in cuts[1:])
+    check('entrada plana: mesmo corte do assento ate a face externa', steps_ < 0.01,
+          f'diferenca entre alturas {steps_:.4f} mm2')
+    t_open = 1.2
+    worst = 0.0
+    for z in heights:
+        m_ = rear.slice(z)
+        # whole slice, not just a disc round each screw: a notch thinning a
+        # wall from the outline can sit outside such a disc
+        thin = m_ - m_.offset(-t_open / 2, JoinType.Round).offset(t_open / 2, JoinType.Round)
+        worst = max([worst] + [c_.area() for c_ in thin.decompose()])
+    check('nenhum material < 1.2 mm na traseira acima do assento, em 3 alturas', worst < 0.25,
+          f'maior pedaco fino {worst:.3f} mm2')
+
+    full = outer_outline_any(frame.project())
+    edges = []
+    for poly in full.to_polygons():
+        n_ = len(poly)
+        edges += [(poly[i], poly[(i + 1) % n_]) for i in range(n_)]
+    ea = np.array([e[0] for e in edges]); eb = np.array([e[1] for e in edges])
+
+    def dist_to_outline(px, py):
+        ab = eb - ea
+        t_ = np.clip(((px - ea[:, 0]) * ab[:, 0] + (py - ea[:, 1]) * ab[:, 1]) /
+                     np.maximum((ab ** 2).sum(1), 1e-12), 0.0, 1.0)
+        return float(np.min(np.hypot(ea[:, 0] + t_ * ab[:, 0] - px, ea[:, 1] + t_ * ab[:, 1] - py)))
+
+    mid = rear.slice(seat_z + gc.HEX_DEPTH / 2.0)
+    for (sx, sy) in gc.SCREWS:
+        verts_ = [(sx + rc_ * np.cos(np.radians(90 + 60 * i)), sy + rc_ * np.sin(np.radians(90 + 60 * i)))
+                  for i in range(6)]
+        thinnest, walled_corners = 9.0, 0
+        for i in range(6):
+            (ax, ay), (bx, by) = verts_[i], verts_[(i + 1) % 6]
+            for k in range(200):
+                px, py = ax + (bx - ax) * k / 200.0, ay + (by - ay) * k / 200.0
+                dx, dy = px - sx, py - sy
+                nn = np.hypot(dx, dy)
+                probe = CrossSection.circle(0.02).translate((px + 0.08 * dx / nn, py + 0.08 * dy / nn))
+                if (probe - mid).area() < 1e-9:              # there is wall here
+                    thinnest = min(thinnest, dist_to_outline(px, py))
+                    if k == 0:
+                        walled_corners += 1
+        check(f'encaixe ({sx:.2f},{sy:.2f}) parede restante >= 1.2 mm', thinnest >= 1.2,
+              f'{thinnest:.3f} mm')
+        check(f'encaixe ({sx:.2f},{sy:.2f}) >= 4 cantos do sextavado com parede', walled_corners >= 4,
+              f'{walled_corners}/6')
 
     print('\n=== 5) tampas acompanham o contorno do frame ===')
     # The frame is the reference. Comparing bounding boxes is not enough:
@@ -258,13 +358,21 @@ def main():
     seat = {'face': outer_outline(frame.slice(gc.FRAME_T - 0.05)),
             'rear': outer_outline(frame.slice(0.05))}
     frame_fp = outer_outline(frame.project())
+    # the rear's nut pocket entrances open the corners above the nut seat
+    entrance_mask = None
+    for (sx, sy) in gc.SCREWS:
+        d_ = CrossSection.circle(gc.HEX_AF / np.sqrt(3.0) + 3.0).translate((sx, sy))
+        entrance_mask = d_ if entrance_mask is None else entrance_mask + d_
     for name, t in (('face', gc.FACE_T), ('rear', gc.REAR_T)):
         plate = parts[name]
         x = xor_area(outer_outline(plate.slice(0.05)), seat[name])
         check(f'{name:12s} contorno na face de contato == frame', x < TOL_AREA,
               f'diferenca {x:.3f} mm2')
-        for z in (0.05, t / 2.0, t - 0.05):
-            x = xor_area(outer_outline(plate.slice(z)) - band, frame_fp - band)
+        for z in (0.05, 0.4 * t, t - 0.05):
+            mask = band
+            if name == 'rear' and z > gc.REAR_T - gc.HEX_DEPTH:
+                mask = band + entrance_mask
+            x = xor_area(outer_outline(plate.slice(z)) - mask, frame_fp - mask)
             check(f'{name:12s} z={z:4.2f} ressaltos e topo/base == frame', x < TOL_AREA,
                   f'diferenca {x:.3f} mm2')
         outside = (plate - gc.prism(frame_fp, -1.0, t + 1.0)).volume()
