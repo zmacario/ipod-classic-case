@@ -1,17 +1,25 @@
 # Project practices
 
-## QC after every design change
+## QC after design changes
 
-After any change to `generate_case.py` or the STL parts made in response to
-a request from the project owner, invoke the `ipod-case-reviewer` subagent
-(`.claude/agents/ipod-case-reviewer.md`) before reporting the change as
-done. It re-verifies that face, frame and rear still fit together correctly
-(via `verify_case.py`) and separately judges whether the design still keeps
-the iPod secure and easy to handle. Relay its findings to the owner; do not
-silently absorb or drop them.
+The printed case is what matters; the tooling exists to serve it, not the
+other way round. Keep verification proportional to the change.
 
-This applies to changes made *in this session and in future ones* -- it is
-not a one-off request tied to whatever change prompted writing this file.
+- **Always**, after any change to `generate_case.py` or the STL parts: run
+  `.venv/bin/python3 verify_case.py` (seconds). If it fails, fix the model
+  before reporting the change as done, and mention the result in one line.
+- **Only for big changes, or when the owner asks**: invoke the
+  `ipod-case-reviewer` subagent (`.claude/agents/ipod-case-reviewer.md`) for
+  an independent review, and mutation-test any new checks. A big change is
+  one that alters how the parts fit together or carry load: the outer
+  outline, the cavity, screw or nut positions and pockets, the frame, or a
+  wall thickness. A local feature (a bevel, a cosmetic tweak) does not
+  need it. When the review does run, relay its findings to the owner; do
+  not silently absorb or drop them.
+- The owner's test prints are the real validation. Prefer getting a change
+  to the printer over further polishing the checks.
+
+This applies to changes made *in this session and in future ones*.
 
 ## Verification tooling
 
@@ -25,5 +33,5 @@ not a one-off request tied to whatever change prompted writing this file.
   if it is missing.
 - `verify_case.py` is meant to evolve with the design: if a change adds a
   new failure mode (a new opening, a new pocket, a new minimum wall) that
-  the script would not catch, extend it rather than leaving the gap for
-  the next change to fall into.
+  the script would not catch, add a check for it -- sized to the change,
+  not an exhaustive one.

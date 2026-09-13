@@ -225,10 +225,10 @@ stick out past it (a full-outline comparison, not a bounding box -- the
 bounding box missed a 4.3 mm overhang once), that the side bevel runs every
 side between the pads at its designed size while the pads stay untouched, and
 that the assembled parts touch without interfering. It replaces the one-off scratchpad scripts this project used to
-re-derive these checks after every change. A Claude Code subagent
-(`.claude/agents/ipod-case-reviewer.md`) runs it automatically, plus a
-judgment pass on whether the design still keeps the iPod secure and easy to
-handle, after any change made through Claude.
+re-derive these checks after every change. For bigger changes, a Claude
+Code subagent (`.claude/agents/ipod-case-reviewer.md`) also gives an
+independent review, including a judgment pass on whether the design still
+keeps the iPod secure and easy to handle.
 
 The generator no longer reads anything from `originals/`: everything,
 including the side bevel, is built from the parameters. The original STLs stay

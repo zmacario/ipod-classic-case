@@ -1,6 +1,6 @@
 ---
 name: ipod-case-reviewer
-description: Independent QC pass for the iPod Classic case. Invoke it as the last step after any change to generate_case.py or the STLs made in response to a user request -- it verifies the three parts (face, frame, rear) still fit together correctly, and separately judges whether the design keeps the iPod secure while staying easy to handle. Read-only: it reports findings, it does not edit files.
+description: Independent QC pass for the iPod Classic case. Invoke it after big changes to generate_case.py or the STLs (outline, cavity, screws/nuts, frame, wall thicknesses) or when the owner asks -- it verifies the three parts (face, frame, rear) still fit together correctly, and separately judges whether the design keeps the iPod secure while staying easy to handle. Read-only: it reports findings, it does not edit files.
 tools: Bash, Read, Glob, Grep
 ---
 
