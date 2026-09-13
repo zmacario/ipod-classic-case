@@ -266,25 +266,25 @@ reason: ending exactly on it left a non-manifold edge at every junction.
 ## Fusion model
 
 [`fusion/ipod_case/`](fusion/ipod_case/) holds a script that rebuilds the same
-three parts inside Autodesk Fusion as a parametric, editable model. In Fusion:
+three parts inside Autodesk Fusion as an editable model. In Fusion:
 *Utilities → Add-Ins → Scripts and Add-Ins → Scripts → **+** →* point it at the
 `fusion/ipod_case` folder and run it.
 
-Thicknesses and depths are wired to User Parameters, so *Modify → Change
-Parameters* rebuilds the model. Sketch profiles use explicit coordinates and
-are not dimension-driven.
+It builds the same model as the STLs: the thin waist, the side bevels, the rear
+pocket with both edges bevelled, the corner entrances at the nut pockets and
+counterbores, and the Hold window where the test prints put it. Fusion keeps
+arcs and circles exact where the STLs are tessellated; otherwise the two should
+not differ, so a change to `generate_case.py` needs the same change there.
 
-Caveats: the script has **not been executed** — it only runs inside Fusion —
-and its plates still carry the old finger-grip scallop (a loft over the lower
-half of each side) rather than the side bevel the STLs now have.
+The plate and frame thicknesses and the pocket depths are wired to User
+Parameters, so *Modify → Change Parameters* rebuilds those features. The
+outline, the bevels and the corner entrances are computed from the constants at
+the top of the script when it runs: edit those and run it again. Sketch
+profiles use explicit coordinates and are not dimension-driven.
 
-It also does **not yet have the thin waist**: it is 4 screws (matching
-`generate_case.py`) with the frame lightened by a blind side-wall pocket,
-which is what the STLs did *before* this pass replaced it with the waist.
-Its rear pocket is straight-walled (no rim or floor bevel), and its nut
-pockets and counterbores are plain, with the 0.33 / 0.59 mm walls. Modelling the
-waist's non-convex outline in Fusion's sketch/loft API is a materially
-bigger job than the change was in `generate_case.py`, and was left out of
-this pass — ask if you want it done. The decorative edge chamfer on the
-face and rear plates was dropped from both, so `plate()` here is now also
-a plain extrusion.
+Caveat: the script has **not been executed in Fusion** — it only runs there. It
+was checked by replaying it against a stand-in for the Fusion API that builds
+each feature's solid, and all three parts matched `generate_case.py`'s to within
+tessellation (nothing thicker than 0.1 mm apart). The stand-in cannot catch a
+mistake in how the real API behaves, so the first run inside Fusion is the real
+test; if it stops with an error, the message names the part it was building.
