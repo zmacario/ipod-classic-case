@@ -38,10 +38,13 @@ This applies to changes made *in this session and in future ones*.
   behaves; `--mutate <name>` plants a known defect to confirm the comparison
   still catches it. If the Fusion script starts using an API call the
   stand-in does not model, extend the stand-in rather than skipping the check.
-- `.venv/` (gitignored) holds `manifold3d`, `numpy` and `trimesh` for
-  running both scripts. Create it with
-  `python3 -m venv .venv && .venv/bin/pip install manifold3d numpy trimesh`
+- `.venv/` (gitignored) holds `manifold3d`, `numpy`, `trimesh` and
+  `matplotlib` for running the scripts. Create it with
+  `python3 -m venv .venv && .venv/bin/pip install manifold3d numpy trimesh matplotlib`
   if it is missing.
+- `assembly.py` redraws `assembly.png`, the README's assembly figure, from
+  `generate_case.py`. Rerun it when a change alters how the parts look, so the
+  figure does not go stale.
 - `verify_case.py` is meant to evolve with the design: if a change adds a
   new failure mode (a new opening, a new pocket, a new minimum wall) that
   the script would not catch, add a check for it -- sized to the change,
