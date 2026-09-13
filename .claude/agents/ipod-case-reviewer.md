@@ -69,8 +69,10 @@ and the printing notes) to ground it in the actual numbers, then assess:
   and the device rattle even if every individual wall measures fine.
 
 **Manageability / handling:**
-- Do the grip scallops on the sides still exist and read as a real,
-  reachable grip band, not swallowed by a wall change nearby?
+- Does each plate's side bevel still run the whole length of both side
+  edges between the corner pads (no sharp side edge left), without reaching
+  into any pad? Is its size (`SIDE_BEVEL_H`, `SIDE_BEVEL_SLOPE`) still a
+  comfortable edge break rather than a wedge thin enough to chip?
 - Are the Hold switch, jack, dock connector and click wheel actually
   reachable and usable at their current size/position/depth -- not sunk in
   a well too deep to reach, not so wide it feels loose?

@@ -18,7 +18,7 @@ design is parametric — edit the numbers at the top and run it again.
 | bottom wall | 5.00 mm | **3.00 mm**, same as the top |
 | outer size | 76.80 × 112.20 mm | **76.80 × 110.20 mm** |
 | frame/face/rear side walls | solid, 7.30 mm all round | **thin waist, thick only at the screws** |
-| face/rear edge chamfer | decorative bevel (from the original) | **removed — follows the frame's outline instead** |
+| face/rear edges | bevel all round, plus a finger-grip scallop on the lower half of each side | **frame's outline, with a bevel along each whole side between the corner pads** |
 
 ### Screw length
 
@@ -62,34 +62,49 @@ frame, which thickens only around its own screws instead of a uniform wall:
   a corner screw. There, a local pad restores the original 7.30 mm, blending
   into the thin waist smoothly enough that it needed no explicit fillet.
 - **Rear plate** additionally keeps its own pocket across the flat outer
-  face, clear of the four screw/nut bosses and the grip scallops, leaving
+  face, clear of the four screw/nut bosses, leaving
   2.50 mm to the inner face (the same floor thickness already proven by the
   hex nut pockets).
 
-Face and rear are a plain extrusion of the same waisted outline as the
-frame, so all three meet flush at every edge. That also meant dropping the
-decorative edge chamfer the original design had on both plates: the waist
-isn't convex, so it fought the usual hull-based taper that built that bevel
-(see [Regenerating](#regenerating)).
+Face and rear start from the same waisted outline as the frame, so all three
+meet flush at every edge; the only thing cut into that outline afterwards is
+the side bevel below, on the plates' outer faces. That also meant dropping the
+decorative edge chamfer the original design had all round both plates: the
+waist isn't convex, so it fought the usual hull-based taper that built that
+bevel (see [Regenerating](#regenerating)).
 
-The frame is the reference outline. The plates' side grip scallop is still
-transplanted from the original mesh (see [Regenerating](#regenerating)), but
-that mesh has the old full-width side wall, so the transplant is clipped to
-the waisted outline: the scallop survives only as a bevel where it cuts
-inside the frame's contour, near each plate's outer face, and nothing sticks
-out past the frame. One leftover: at the four bottom corners, between
-y ≈ 7 and 10 mm, the transplant still carries a short stretch of the
-original's decorative edge chamfer (1.47 mm on the face, 1.13 mm on the
-rear), recessed inside the outline. An earlier version transplanted it unclipped, which left
-both plates overhanging the frame by up to 4.3 mm along the grip band;
-`verify_case.py` now compares the full outline, so that cannot pass again.
+### Side bevel
+
+Each plate bevels the outer-face edge of both sides, along the **whole** side
+between the bottom and top corner pads, so no side edge is a sharp corner.
+The pads keep their full square edge: the bevel stops exactly where each
+pad's arc meets the straight side (y = 16.44 and 93.76 mm) and follows that
+arc, so no pad loses material. The frame has no bevel.
+
+| | |
+|---|---|
+| slope | 2.324 mm in per mm down (same as the click wheel chamfer) |
+| down the side | 0.83 mm |
+| in across the outer face | 1.93 mm |
+
+That is the profile the original design's finger-grip scallop already left on
+the thin waist; `SIDE_BEVEL_SLOPE` and `SIDE_BEVEL_H` in `generate_case.py`
+change it.
+
+It replaces that scallop, which was transplanted from the original mesh and
+had three problems here: it only existed on the lower half of each side, it
+cut a 6.2 × 2.7 mm recess into the bottom pads, and it brought a short stretch
+of the original's decorative chamfer with it. Transplanted unclipped, it had
+also left both plates overhanging the frame by up to 4.3 mm; `verify_case.py`
+now compares full outlines, so neither that nor a bevel reaching into a pad can
+pass again.
 
 | part | original | pockets only | thin waist + pads |
 |---|---|---|---|
-| face | 15.99 cm³ | 15.61 cm³ | 14.10 cm³ |
+| face | 15.99 cm³ | 15.61 cm³ | 14.11 cm³ |
 | frame | 27.43 cm³ | 18.42 cm³ | 16.19 cm³ |
-| rear | 41.39 cm³ | 28.89 cm³ | 26.21 cm³ |
-| **total** | **84.81 cm³** | **62.92 cm³** | **56.50 cm³** |
+| rear | 41.39 cm³ | 28.89 cm³ | 26.22 cm³ |
+| **total** | **84.81 cm³** | **62.92 cm³** | **56.52 cm³** |
 
 A third less material than the original design. All three parts are
 verified watertight, with the waist's wall measured at exactly 3.00 mm to
@@ -123,7 +138,7 @@ The iPod cavity does not change, so **the whole case is 2.0 mm shorter**, and
 all three parts change with it. Everything positioned against the iPod — the
 cavity, the screen window, the click wheel, the jack and the Hold window — is
 measured from the cavity floor and stays exactly where it was relative to the
-device, and the side grip scallop keeps its distance from the bottom edge.
+device.
 
 The dock flare still fits, with 1.13 mm of straight bore ahead of it. The one
 trade-off is the material bridging the dock cutout: it is now 3 mm deep
@@ -152,9 +167,9 @@ unit's switch is what it matches; if yours does not line up, adjust
 
 | part | thickness | volume |
 |---|---|---|
-| face | 3.50 mm | 14.10 cm³ |
+| face | 3.50 mm | 14.11 cm³ |
 | frame | 14.00 mm | 16.19 cm³ |
-| rear | 5.00 mm | 26.21 cm³ |
+| rear | 5.00 mm | 26.22 cm³ |
 
 About 67 g in PLA if printed solid (was ~101 g before the weight reduction).
 
@@ -180,18 +195,17 @@ checks watertightness/topology, the waist's wall thickness, every corner
 screw's clearance, the rear pocket and hex floors, that face and rear
 match the frame's full outline at the face that seats against it and never
 stick out past it (a full-outline comparison, not a bounding box -- the
-bounding box missed a 4.3 mm overhang once), and that the assembled parts do
-not interfere. It replaces the one-off scratchpad scripts this project used to
+bounding box missed a 4.3 mm overhang once), that the side bevel runs every
+side between the pads at its designed size while the pads stay untouched, and
+that the assembled parts touch without interfering. It replaces the one-off scratchpad scripts this project used to
 re-derive these checks after every change. A Claude Code subagent
 (`.claude/agents/ipod-case-reviewer.md`) runs it automatically, plus a
 judgment pass on whether the design still keeps the iPod secure and easy to
 handle, after any change made through Claude.
 
-The generator reads the two original STLs from `originals/`. It needs them:
-both plates carry a finger scallop along the side edges whose ends are not
-circular arcs, so rather than approximating the shape the script transplants
-that region straight out of the original mesh. Without those files the parts
-still generate, but with plain side edges.
+The generator no longer reads anything from `originals/`: everything,
+including the side bevel, is built from the parameters. The original STLs stay
+there for reference.
 
 All three parts come out watertight, with consistent winding and the expected
 topology (genus 6 / 8 / 4 — one handle per through-hole; the rear plate's
@@ -201,8 +215,9 @@ The waisted outline is not convex, which is why `outer_profile()` builds it
 as a 2D union rather than a hull (`Manifold.batch_hull` always returns
 something convex, which would fill the waist back in). A few `.simplify()`
 calls (`MESH_TOL`) clean up near-duplicate vertices from the waist's arcs,
-ahead of the jack/Hold cuts and the grip scallop transplant, so those
-booleans stay manifold.
+ahead of the jack/Hold cuts, so those booleans stay manifold. The side
+bevel's cutter stops 0.001 mm (`OVERLAP`) short of each pad's arc for the same
+reason: ending exactly on it left a non-manifold edge at every junction.
 
 ## Fusion model
 
@@ -216,8 +231,8 @@ Parameters* rebuilds the model. Sketch profiles use explicit coordinates and
 are not dimension-driven.
 
 Caveats: the script has **not been executed** — it only runs inside Fusion —
-and it reproduces the side scallop as a loft with circular ends, up to
-~0.6 mm off the original curve, where the STLs are exact.
+and its plates still carry the old finger-grip scallop (a loft over the lower
+half of each side) rather than the side bevel the STLs now have.
 
 It also does **not yet have the thin waist**: it is 4 screws (matching
 `generate_case.py`) with the frame lightened by a blind side-wall pocket,

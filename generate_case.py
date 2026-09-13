@@ -8,6 +8,7 @@ these changes:
   * opening for the Hold switch
   * flared (countersunk) wall openings for jack, dock and Hold
   * a thin waist on all three parts, with material only where the screws need it
+  * a bevel along each side edge of both plates, between the corner pads only
 
 All dimensions in millimetres. Edit the parameters and run again:
 
@@ -80,12 +81,22 @@ SCREWS = [(SCREW_EDGE_X,           SCREW_EDGE_Y),
 # The waisted outer profile above already thins the perimeter of all three
 # parts. The rear plate's flat outer face gets one more pocket on top of
 # that: clear of the 4 corner screws/nuts (plus REAR_POCKET_CLEAR beyond
-# each hex nut) and of the grip scallops, leaving REAR_POCKET_KEEP of
+# each hex nut), leaving REAR_POCKET_KEEP of
 # material to the inner face -- the same floor thickness already proven by
 # the hex nut pockets.
 REAR_POCKET_KEEP  = 2.50
 REAR_POCKET_CLEAR = 3.00
 REAR_POCKET_R     = 4.00           # pocket corner radius
+
+# ---- side edge bevel (face and rear plates) --------------------------------
+# Both plates bevel the outer-face edge of each side, all the way between the
+# bottom and top corner pads -- and only there: the pads keep their full
+# square edge. The frame has no bevel. The profile is the one the original
+# design's finger-grip scallop left on the thin waist, now run the full
+# length: the same slope as the click wheel chamfer (2.324 mm in for every
+# mm down), 0.83 mm down the side, so 1.93 mm in across the outer face.
+SIDE_BEVEL_SLOPE = 2.324
+SIDE_BEVEL_H     = 0.83
 
 # ---- FACE PLATE -----------------------------------------------------------
 FACE_T             = 3.501         # same as the original
@@ -230,9 +241,46 @@ def outer_profile(inset=0.0):
     return out
 
 
+def pad_span():
+    """(y0, y1): where the bottom and top pads' arcs meet the straight waist
+    edge. The side edge between the pads -- the only part a plate bevels --
+    runs from y0 to y1."""
+    x_w = (OUTER_W - OUTER_W_THIN) / 2.0
+    dy = math.sqrt(PAD_R**2 - (CORNER_R - x_w)**2)
+    return CORNER_R + dy, OUTER_H - CORNER_R - dy
+
+
+def side_bevels(t):
+    """Cutter for the bevel along both side edges of a plate's outer face
+    (z = t), between the corner pads only (see SIDE_BEVEL_*).
+
+    A straight wedge along the waist edge, from just below y0 to just above
+    y1, minus the pads themselves: the bevel ends exactly where each pad's
+    arc begins, following that arc, so no pad loses material."""
+    x_w = (OUTER_W - OUTER_W_THIN) / 2.0
+    s, h, ext = SIDE_BEVEL_SLOPE, SIDE_BEVEL_H, 1.0
+    # (x, z) triangle above the bevel plane, which passes through
+    # (x_w, t - h) at the side and (x_w + s*h, t) on the outer face
+    tri = CrossSection([[(x_w - ext, t - h - ext / s),
+                         (x_w + s * h + s * ext, t + ext),
+                         (x_w - ext, t + ext)]])
+    y0, y1 = pad_span()
+    left = slab_y(tri, y0 - ext, y1 + ext)
+    both = left + left.mirror((1, 0, 0)).translate((OUTER_W, 0, 0))
+    pads = _outer_pieces()[1:]
+    footprint = pads[0]
+    for p in pads[1:]:
+        footprint = footprint + p
+    # Grown by OVERLAP: cut back to the exact pad arc, the bevel's end face
+    # met the plate's own outline arc on a shared line and left a
+    # non-manifold edge at each of the 8 junctions.
+    footprint = footprint.offset(OVERLAP, JoinType.Round)
+    return both - prism(footprint, -1.0, t + ext + 1.0)
+
+
 def rear_pocket():
     """Single pocket in the rear plate's flat outer face (see REAR_POCKET_*),
-    sized to clear the 4 hex nut bosses and the grip scallops on its own."""
+    sized to clear the 4 hex nut bosses."""
     hex_rc = HEX_AF / math.sqrt(3.0)             # hex centre -> vertex
     x0 = SCREW_EDGE_X + hex_rc + REAR_POCKET_CLEAR
     x1 = OUTER_W - x0
@@ -261,8 +309,9 @@ def wall_opening(cs, setback, y_in, y_out):
 # PARTS
 # ============================================================================
 
-def face(grip=None):
+def face():
     body = prism(outer_profile(), 0, FACE_T).simplify(MESH_TOL)
+    body = body - side_bevels(FACE_T)
 
     screen = taper(rrect(SCREEN_W, SCREEN_H, SCREEN_R, SCREEN_CX, SCREEN_CY),
                    SCREEN_CHAMF_Z,
@@ -276,11 +325,6 @@ def face(grip=None):
                   FACE_T, below=WHEEL_CHAMF_Z + 2.0, above=2.0)
 
     body = body - screen - wheel
-    # The grip scallop is copied in from the original mesh, so it has to go in
-    # BEFORE the screws are cut: its boxes overlap the bottom corner holes, and
-    # cutting the screws first let the copy fill part of the pockets back in.
-    if grip:
-        body = grip(body)
     for (x, y) in SCREWS:
         body = body - Manifold.cylinder(FACE_T + 4, SCREW_D/2, SCREW_D/2, 0, False)\
                               .translate((x, y, -2))
@@ -317,10 +361,9 @@ def frame():
     return body
 
 
-def rear(grip=None):
+def rear():
     body = prism(outer_profile(), 0, REAR_T).simplify(MESH_TOL)
-    if grip:                                      # before the screws, see face()
-        body = grip(body)
+    body = body - side_bevels(REAR_T)
     for (x, y) in SCREWS:
         body = body - Manifold.cylinder(REAR_T + 4, SCREW_D/2, SCREW_D/2, 0, False)\
                               .translate((x, y, -2))
@@ -328,55 +371,6 @@ def rear(grip=None):
                               .translate((0, 0, REAR_T - HEX_DEPTH))
     body = body - rear_pocket()
     return body
-
-# ============================================================================
-# SIDE GRIP SCALLOPS
-# ============================================================================
-# Both plates carry a scallop along the side edges (y ~ 10..50) that forms a
-# finger grip: a chamfer of slope 2.324 (the same as the click wheel) starting
-# at z ~ 0.82 and running to the outer face. Its ends are not circular arcs, so
-# instead of approximating the shape we transplant that region straight out of
-# the original STL, clipped to the waisted outline so the plates still follow
-# the frame's contour. The frame itself has no scallop and stays a plain
-# extrusion of outer_profile().
-
-def _stl_manifold(path):
-    import numpy as np, struct
-    from manifold3d import Mesh
-    d = open(path, 'rb').read()
-    n = struct.unpack('<I', d[80:84])[0]
-    a = np.frombuffer(d[84:84+50*n], dtype=np.uint8).reshape(n, 50)
-    tri = a[:, :48].copy().view('<f4').reshape(n, 4, 3)[:, 1:4, :].astype(np.float64)
-    for i in range(3):
-        tri[:, :, i] -= tri[:, :, i].min()
-    u, inv = np.unique(np.round(tri.reshape(-1, 3), 4), axis=0, return_inverse=True)
-    return Manifold(Mesh(vert_properties=u.astype(np.float32),
-                         tri_verts=inv.reshape(-1, 3).astype(np.uint32)))
-
-
-# boxes enclosing the two scallops, kept clear of the rounded corners
-GRIP_BOXES = [(-1.0, 10.0, 7.0, 53.0), (OUTER_W - 10.0, OUTER_W + 1.0, 7.0, 53.0)]
-
-
-def apply_grip_scallops(body, original_stl, dz, z_top):
-    """Replace the two side regions with geometry from the original STL,
-    shifted by dz in z."""
-    import os
-    if not os.path.exists(original_stl):
-        print(f'  warning: {original_stl} missing - grip scallops not applied')
-        return body
-    orig = _stl_manifold(original_stl).translate((0, 0, dz))
-    # The original mesh still has the old full-width side wall, so it is
-    # clipped to the waisted outline: the plate keeps the scallop only where
-    # it cuts inside the frame's contour, and never overhangs the frame.
-    footprint = prism(outer_profile(), -1.0, z_top + 2.0)
-    for (x0, x1, y0, y1) in GRIP_BOXES:
-        box = Manifold.cube((x1 - x0, y1 - y0, z_top - dz + 1.0))\
-                      .translate((x0, y0, dz))
-        body = (body - box) + (orig ^ box ^ footprint)
-    # the STL-derived mesh brings its own tessellation; simplify cleans up
-    # the seam it leaves against the generated body (see MESH_TOL)
-    return body.simplify(MESH_TOL)
 
 # ============================================================================
 
@@ -404,18 +398,8 @@ if __name__ == '__main__':
     base = os.path.dirname(os.path.abspath(__file__))
     out_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(base, 'stl')
 
-    parts = [
-        ('face',        face,  'originals/simple-ipod-case-face.stl', FACE_T - 3.501, FACE_T),
-        ('thick-frame', frame, None,                        0.0,            FRAME_T),
-        ('rear',        rear,  'originals/simple-ipod-case-rear.stl', REAR_T - 3.500, REAR_T),
-    ]
-    for name, build, original, dz, z_top in parts:
-        if original:
-            src = os.path.join(base, original)
-            man = build(grip=lambda b, src=src, dz=dz, z_top=z_top:
-                        apply_grip_scallops(b, src, dz, z_top))
-        else:
-            man = build()
+    for name, build in (('face', face), ('thick-frame', frame), ('rear', rear)):
+        man = build()
         path = os.path.join(out_dir, f'simple-ipod-case-{name}-v2.stl')
         ntri = save_stl(man, path)
         bb = man.bounding_box()
