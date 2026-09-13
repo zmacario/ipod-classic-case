@@ -18,6 +18,7 @@ design is parametric — edit the numbers at the top and run it again.
 | bottom wall | 5.00 mm | **3.00 mm**, same as the top |
 | outer size | 76.80 × 112.20 mm | **76.80 × 110.20 mm** |
 | frame/face/rear side walls | solid, 7.30 mm all round | **thin waist, thick only at the screws** |
+| face/rear edge chamfer | decorative bevel (from the original) | **removed — follows the frame's outline instead** |
 
 ### Screw length
 
@@ -60,12 +61,18 @@ frame, which thickens only around its own screws instead of a uniform wall:
   already proven by the top/bottom walls — everywhere except within reach of
   a corner screw. There, a local pad restores the original 7.30 mm, blending
   into the thin waist smoothly enough that it needed no explicit fillet.
-  Face and rear share the exact same outline as the frame, so all three
-  still meet flush at every edge.
 - **Rear plate** additionally keeps its own pocket across the flat outer
   face, clear of the four screw/nut bosses and the grip scallops, leaving
   2.50 mm to the inner face (the same floor thickness already proven by the
   hex nut pockets).
+
+Face and rear share the exact same outline as the frame, at every height —
+which also meant dropping the decorative edge chamfer the original design
+had on both plates: the waist isn't convex, so it fought the usual
+hull-based taper that built that bevel (see
+[Regenerating](#regenerating)). Face and rear are now a plain extrusion of
+the same waisted outline as the frame, so all three meet flush at every
+edge, with no bevel where they meet.
 
 The grip scallop on the sides is transplanted from the original mesh (see
 [Regenerating](#regenerating)) and keeps its original, unthinned thickness —
@@ -73,15 +80,17 @@ a deliberately thicker band for the fingers to grip, not an oversight.
 
 | part | original | pockets only | thin waist + pads |
 |---|---|---|---|
-| face | 15.99 cm³ | 15.61 cm³ | 14.31 cm³ |
+| face | 15.99 cm³ | 15.61 cm³ | 14.70 cm³ |
 | frame | 27.43 cm³ | 18.42 cm³ | 16.19 cm³ |
-| rear | 41.39 cm³ | 28.89 cm³ | 26.57 cm³ |
-| **total** | **84.81 cm³** | **62.92 cm³** | **57.07 cm³** |
+| rear | 41.39 cm³ | 28.89 cm³ | 26.83 cm³ |
+| **total** | **84.81 cm³** | **62.92 cm³** | **57.73 cm³** |
 
-Down to about a third less material than the original design. All three
-parts are verified watertight, with the waist's wall measured at exactly
-3.00 mm to the cavity along its whole length and the corner screws keeping
-their original margins (1.87 mm to the cavity, 2.02 mm to the outer edge).
+Down to about a third less material than the original design (face and rear
+ticked up slightly from the previous column once their chamfer, which
+removed a sliver of material, came out). All three parts are verified
+watertight, with the waist's wall measured at exactly 3.00 mm to the cavity
+along its whole length and the corner screws keeping their original margins
+(1.87 mm to the cavity, 2.02 mm to the outer edge).
 
 ### Flared openings
 
@@ -139,11 +148,11 @@ unit's switch is what it matches; if yours does not line up, adjust
 
 | part | thickness | volume |
 |---|---|---|
-| face | 3.50 mm | 14.31 cm³ |
+| face | 3.50 mm | 14.70 cm³ |
 | frame | 14.00 mm | 16.19 cm³ |
-| rear | 5.00 mm | 26.57 cm³ |
+| rear | 5.00 mm | 26.83 cm³ |
 
-About 68 g in PLA if printed solid (was ~101 g before the weight reduction).
+About 69 g in PLA if printed solid (was ~101 g before the weight reduction).
 
 - **Both plates:** flat side down on the bed, **no supports**. The counterbores
   and hex pockets open upwards, and the waist's thin sections need no support
@@ -171,14 +180,12 @@ All three parts come out watertight, with consistent winding and the expected
 topology (genus 6 / 8 / 4 — one handle per through-hole; the rear plate's
 lightening pocket is blind, so it adds none).
 
-The waisted outline is not convex, which the generator works around in two
-places: `outer_profile()` builds it as a 2D union rather than a hull, and its
-small edge chamfer (`outer_body()`) is a stack of straight, progressively
-inset slabs instead of the usual hull-based taper — hulling a non-convex
-profile, even piece by piece, produced a boolean the STL exporter read back
-as non-manifold. A few `.simplify()` calls (`MESH_TOL`) clean up near-duplicate
-vertices from the waist's arcs for the same reason, ahead of the jack/Hold
-cuts and the grip scallop transplant.
+The waisted outline is not convex, which is why `outer_profile()` builds it
+as a 2D union rather than a hull (`Manifold.batch_hull` always returns
+something convex, which would fill the waist back in). A few `.simplify()`
+calls (`MESH_TOL`) clean up near-duplicate vertices from the waist's arcs,
+ahead of the jack/Hold cuts and the grip scallop transplant, so those
+booleans stay manifold.
 
 ## Fusion model
 
@@ -199,6 +206,8 @@ It also does **not yet have the thin waist**: it is 4 screws (matching
 `generate_case.py`) with the frame lightened by a blind side-wall pocket,
 which is what the STLs did *before* this pass replaced it with the waist.
 The rear plate's own pocket is unaffected and still matches. Modelling the
-waist's non-convex outline and its stepped chamfer in Fusion's sketch/loft
-API is a materially bigger job than the change was in `generate_case.py`,
-and was left out of this pass — ask if you want it done.
+waist's non-convex outline in Fusion's sketch/loft API is a materially
+bigger job than the change was in `generate_case.py`, and was left out of
+this pass — ask if you want it done. The decorative edge chamfer on the
+face and rear plates was dropped from both, so `plate()` here is now also
+a plain extrusion.

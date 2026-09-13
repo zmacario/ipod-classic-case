@@ -20,9 +20,9 @@ KNOWN DIFFERENCES FROM THE STLs
 
   The frame here still lightens its side walls with a blind pocket
   (frame_pocket). generate_case.py replaced that with a thin waist that
-  only keeps full wall thickness around each screw -- porting that non-convex
-  outline and its stepped chamfer to Fusion's sketch/loft API was left for a
-  future pass. The rear plate's pocket (rear_pocket) is unaffected.
+  only keeps full wall thickness around each screw -- porting that
+  non-convex outline to Fusion's sketch/loft API was left for a future
+  pass. The rear plate's pocket (rear_pocket) is unaffected.
 """
 
 import adsk.core, adsk.fusion, traceback, math
@@ -38,7 +38,6 @@ PARAMS = [
     ('corner_r',     '7.5 mm',    'plan-view corner radius'),
     ('screw_d',      '3.15 mm',   'M3 clearance hole'),
     ('face_t',      '3.501 mm',  'face plate thickness'),
-    ('face_chamf_z',   '1.679 mm',  'height where the face chamfer starts'),
     ('counterbore_depth',   '2.501 mm',  'screw head counterbore depth'),
     ('frame_t',     '14 mm',     'frame thickness'),
     ('rear_t',      '5 mm',      'rear plate thickness'),
@@ -64,7 +63,7 @@ SCREWS = [(SCREW_EDGE_X, SCREW_EDGE_Y), (W - SCREW_EDGE_X, SCREW_EDGE_Y),
 FRAME_POCKET_KEEP, FRAME_POCKET_LIP, FRAME_POCKET_CLEAR = 3.00, 2.00, 6.00
 REAR_POCKET_KEEP,  REAR_POCKET_CLEAR, REAR_POCKET_R      = 2.50, 3.00, 4.00
 
-FACE_T, FACE_CHAMF_Z, FACE_CHAMF_SETBACK = 3.501, 1.679, 1.471
+FACE_T = 3.501
 COUNTERBORE_D, COUNTERBORE_DEPTH           = 6.0, 2.501
 SCREEN  = dict(w=51.518, h=39.922, r=2.378, cx=38.40, cy=WALL_BOTTOM + 79.35, ch_z=1.189, off=1.4805)
 WHEEL = dict(d=37.99, cx=38.40, cy=WALL_BOTTOM + 31.00, ch_z=0.884, d_out=50.14)
@@ -82,7 +81,7 @@ HOLD    = dict(w=14.0, h=5.0, r=1.5, x=21.84, z=7.29)   # 12.5 x 3.3 switch plus
 CHAMFER_SLOPE = 0.6403
 JACK_CHAMF, DOCK_CHAMF, HOLD_CHAMF = 0.60, 1.20, 1.20
 
-REAR_T, REAR_CHAMF_RISE, REAR_CHAMF_SETBACK = 5.0, 1.599, 1.141
+REAR_T = 5.0
 HEX_AF, HEX_DEPTH                    = 5.846, 2.5
 NOTCH = dict(y0=9.53, y1=50.33, r=2.10, z0=0.82, incl=2.324)
 
@@ -233,20 +232,14 @@ def loft(comp, p1, p2, op, target=None):
 
 NEW_BODY  = adsk.fusion.FeatureOperations.NewBodyFeatureOperation
 CUT = adsk.fusion.FeatureOperations.CutFeatureOperation
-JOIN   = adsk.fusion.FeatureOperations.JoinFeatureOperation
 
 
 # -------------------------------------------------------------------- build
-def plate(comp, t_expr, t_val, chamf_expr, chamf_val, chamf_setback):
+def plate(comp, t_expr):
+    """Straight extrusion of the outer footprint -- no decorative edge
+    chamfer; face and rear plates now just follow the frame's own outline."""
     sk0 = comp.sketches.add(comp.xYConstructionPlane)
-    base = extrude(comp, rrect(sk0, W, H, RC, W/2, H/2), chamf_expr, NEW_BODY)
-    body = base.bodies.item(0)
-    sk1 = comp.sketches.add(plane_xy(comp, chamf_expr))
-    p1  = rrect(sk1, W, H, RC, W/2, H/2)
-    sk2 = comp.sketches.add(plane_xy(comp, t_expr))
-    p2  = rrect(sk2, W - 2*chamf_setback, H - 2*chamf_setback, RC - chamf_setback, W/2, H/2)
-    loft(comp, p1, p2, JOIN, body)
-    return body
+    return extrude(comp, rrect(sk0, W, H, RC, W/2, H/2), t_expr, NEW_BODY).bodies.item(0)
 
 
 def grip_scallop(comp, body, t_expr, t_val):
@@ -320,7 +313,7 @@ def rear_pocket(comp, body):
 def build_face(root):
     comp = root.occurrences.addNewComponent(adsk.core.Matrix3D.create()).component
     comp.name = 'face'
-    body = plate(comp, 'face_t', FACE_T, 'face_chamf_z', FACE_CHAMF_Z, FACE_CHAMF_SETBACK)
+    body = plate(comp, 'face_t')
 
     t = SCREEN
     ska = comp.sketches.add(plane_xy(comp, '{} mm'.format(t['ch_z'])))
@@ -351,8 +344,7 @@ def build_face(root):
 def build_rear(root):
     comp = root.occurrences.addNewComponent(adsk.core.Matrix3D.create()).component
     comp.name = 'rear'
-    body = plate(comp, 'rear_t', REAR_T,
-                  'rear_t - {} mm'.format(REAR_CHAMF_RISE), REAR_T-REAR_CHAMF_RISE, REAR_CHAMF_SETBACK)
+    body = plate(comp, 'rear_t')
     grip_scallop(comp, body, 'rear_t', REAR_T)
     screw_holes_cut(comp, body, 'rear_t', hex_socket=dict(af=HEX_AF, p='hex_depth'))
     rear_pocket(comp, body)
