@@ -9,6 +9,7 @@ these changes:
   * flared (countersunk) wall openings for jack, dock and Hold
   * a thin waist on all three parts, with material only where the screws need it
   * a bevel along each side edge of both plates, between the corner pads only
+  * a lightening pocket in the rear plate, with both of its edges bevelled
 
 All dimensions in millimetres. Edit the parameters and run again:
 
@@ -97,6 +98,15 @@ REAR_POCKET_R     = 4.00           # pocket corner radius
 # mm down), 0.83 mm down the side, so 1.93 mm in across the outer face.
 SIDE_BEVEL_SLOPE = 2.324
 SIDE_BEVEL_H     = 0.83
+
+# The rear pocket's two edges -- the rim on the outer face and the corner
+# where its wall meets the floor -- get the same bevel, so the pocket has no
+# sharp edge either: the wall runs in from the floor, straight, then out to
+# the mouth. The mouth therefore reaches w = SLOPE * H further out at the
+# outer face than REAR_POCKET_CLEAR alone suggests, and the floor chamfer
+# never takes the floor below REAR_POCKET_KEEP.
+REAR_POCKET_BEVEL_SLOPE = SIDE_BEVEL_SLOPE
+REAR_POCKET_BEVEL_H     = SIDE_BEVEL_H
 
 # ---- FACE PLATE -----------------------------------------------------------
 FACE_T             = 3.501         # same as the original
@@ -280,15 +290,32 @@ def side_bevels(t):
 
 def rear_pocket():
     """Single pocket in the rear plate's flat outer face (see REAR_POCKET_*),
-    sized to clear the 4 hex nut bosses."""
+    sized to clear the 4 hex nut bosses, with both edges bevelled.
+
+    The wall profile -- in from the floor, straight, out to the mouth -- is
+    not convex, so the cutter is three stacked pieces: a hull from the
+    floor's inset outline up to the nominal wall, the straight wall, and a
+    hull out to the mouth past the outer face. Each hull joins two nested
+    rounded rectangles offset from one another, which is exact.
+
+    The floor slab sits on z = REAR_POCKET_KEEP, not below it: taper()
+    reaches 1e-4 below its small end, which would lower the floor."""
     hex_rc = HEX_AF / math.sqrt(3.0)             # hex centre -> vertex
     x0 = SCREW_EDGE_X + hex_rc + REAR_POCKET_CLEAR
     x1 = OUTER_W - x0
     y0 = SCREW_EDGE_Y + hex_rc + REAR_POCKET_CLEAR
     y1 = OUTER_H - y0
     cs = rrect(x1 - x0, y1 - y0, REAR_POCKET_R, (x0 + x1)/2.0, (y0 + y1)/2.0)
-    depth = REAR_T - REAR_POCKET_KEEP
-    return prism(cs, REAR_T - depth, REAR_T + 1.0)
+    h = REAR_POCKET_BEVEL_H
+    w = REAR_POCKET_BEVEL_SLOPE * h
+    z_floor, z_a, z_b = REAR_POCKET_KEEP, REAR_POCKET_KEEP + h, REAR_T - h
+    if z_a > z_b:
+        raise ValueError('rear pocket too shallow for two bevels of REAR_POCKET_BEVEL_H')
+    floor = Manifold.batch_hull([prism(cs.offset(-w, JoinType.Round), z_floor, z_floor + 1e-4),
+                                 prism(cs, z_a, z_a + 1e-4)])
+    wall = prism(cs, z_a - OVERLAP, z_b + OVERLAP)
+    rim = taper(cs, z_b, cs.offset(w, JoinType.Round), REAR_T, above=1.0)
+    return floor + wall + rim
 
 
 def wall_opening(cs, setback, y_in, y_out):

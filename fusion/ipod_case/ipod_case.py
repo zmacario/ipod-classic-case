@@ -22,7 +22,8 @@ KNOWN DIFFERENCES FROM THE STLs
   (frame_pocket). generate_case.py replaced that with a thin waist that
   only keeps full wall thickness around each screw -- porting that
   non-convex outline to Fusion's sketch/loft API was left for a future
-  pass. The rear plate's pocket (rear_pocket) is unaffected.
+  pass. The rear plate's pocket (rear_pocket) is straight-walled here;
+  generate_case.py bevels both its rim and its floor edge.
 """
 
 import adsk.core, adsk.fusion, traceback, math

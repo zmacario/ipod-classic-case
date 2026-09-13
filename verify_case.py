@@ -9,7 +9,8 @@ checks the things a slicer or an assembly will not forgive:
   * the waist's wall to the cavity is never thinner than WALL_SIDE
   * every corner screw keeps its known clearance to the cavity and the
     outer edge
-  * the rear plate's hex/lightening pocket floors are at their design depth
+  * the rear plate's hex/lightening pocket floors are at their design depth,
+    and the pocket has its rim and floor edges bevelled, clear of the nuts
   * face and rear follow the frame's outline: identical to it at the face
     that seats against the frame, and never sticking out past it
   * both plates bevel the whole of each side edge between the corner pads,
@@ -31,7 +32,7 @@ which is exactly the failure mode this project hit more than once).
 """
 import sys
 import numpy as np
-from manifold3d import CrossSection, Manifold
+from manifold3d import CrossSection, JoinType, Manifold
 
 import generate_case as gc
 
@@ -88,6 +89,13 @@ def main():
           gc.FACE_T - gc.COUNTERBORE_DEPTH >= 0.8, f'{gc.FACE_T - gc.COUNTERBORE_DEPTH:.2f} mm')
     check('screw hole clearance (SCREW_D) is a real M3 clearance fit',
           3.1 <= gc.SCREW_D <= 3.4, f'{gc.SCREW_D:.2f} mm')
+    # The owner asked for these edges to be softened; a bevel shrunk to
+    # nothing would still pass every shape check below, since those follow
+    # the parameters.
+    check('side bevel is a real edge break (SIDE_BEVEL_H >= 0.5 mm)',
+          gc.SIDE_BEVEL_H >= 0.5, f'{gc.SIDE_BEVEL_H:.2f} mm')
+    check('rear pocket bevels are real edge breaks (REAR_POCKET_BEVEL_H >= 0.5 mm)',
+          gc.REAR_POCKET_BEVEL_H >= 0.5, f'{gc.REAR_POCKET_BEVEL_H:.2f} mm')
 
     print('\n=== 1) estanqueidade, winding e topologia ===')
     for name, man in parts.items():
@@ -150,6 +158,67 @@ def main():
         check(f'piso do encaixe de porca ({x:.2f},{y:.2f})',
               abs(hex_floor - expected_hex_floor) < 1e-3,
               f'{hex_floor:.4f} mm3 (esperado {expected_hex_floor:.4f})')
+
+    print('\n=== 4b) bolsao da traseira com as duas arestas chanfradas ===')
+    # Same approach as 5b: the rear plate built without its pocket, minus the
+    # real one, must be exactly a pocket built here from the parameters --
+    # rim bevel out to the mouth, straight wall, floor bevel in to the floor,
+    # floor at REAR_POCKET_KEEP. Then the webs it leaves at the outer face.
+    def rr(w_, h_, r_, cx_, cy_):
+        return CrossSection.square((w_ - 2*r_, h_ - 2*r_), center=True) \
+            .offset(r_, JoinType.Round).translate((cx_, cy_))
+
+    def ext(cs, z0, z1):
+        return Manifold.extrude(cs, z1 - z0).translate((0, 0, z0))
+
+    ph = gc.REAR_POCKET_BEVEL_H
+    pw = gc.REAR_POCKET_BEVEL_SLOPE * ph
+    rx1, ry1 = gc.OUTER_W - rx0, gc.OUTER_H - ry0
+    nominal = rr(rx1 - rx0, ry1 - ry0, gc.REAR_POCKET_R, cx, cy)
+    zf, za, zb, zt = gc.REAR_POCKET_KEEP, gc.REAR_POCKET_KEEP + ph, gc.REAR_T - ph, gc.REAR_T
+    pocket = (Manifold.batch_hull([ext(nominal.offset(-pw, JoinType.Round), zf, zf + 1e-4),
+                                   ext(nominal, za, za + 1e-4)])
+              + ext(nominal, za - 1e-3, zb + 1e-3)
+              + Manifold.batch_hull([ext(nominal, zb - 1e-4, zb),
+                                     ext(nominal.offset(pw, JoinType.Round), zt, zt + 1.0)]))
+    saved_pocket = gc.rear_pocket
+    gc.rear_pocket = lambda: Manifold()
+    try:
+        no_pocket = gc.rear()
+    finally:
+        gc.rear_pocket = saved_pocket
+    removed = no_pocket - rear
+    extra = (removed - pocket).volume()
+    missing = ((no_pocket ^ pocket) - removed).volume()
+    added = (rear - no_pocket).volume()
+    check('bolsao nao acrescenta material', added < 0.05, f'{added:.4f} mm3')
+    check('nada removido fora do bolsao teorico (chanfros, parede, piso)', extra < 0.05,
+          f'{max(extra, 0.0):.4f} mm3')
+    check('bolsao teorico removido por inteiro', missing < 0.05,
+          f'{missing:.4f} mm3 faltando de {(no_pocket ^ pocket).volume():.1f}')
+
+    top = rear.slice(gc.REAR_T - 1e-4)        # any lower and the rim bevel reads wider webs
+    polys = top.to_polygons()
+    def signed(p_):
+        n_ = len(p_)
+        return 0.5 * sum(p_[i][0]*p_[(i+1) % n_][1] - p_[(i+1) % n_][0]*p_[i][1] for i in range(n_))
+    holes = sorted([q for q in polys if signed(q) < 0], key=signed)   # biggest first
+    mouth = CrossSection([[tuple(v) for v in reversed(holes[0])]])
+    others = None
+    for q in holes[1:]:
+        c_ = CrossSection([[tuple(v) for v in reversed(q)]])
+        others = c_ if others is None else others + c_
+    outline = CrossSection([[tuple(v) for v in q] for q in polys if signed(q) > 0])
+    lo, hi = 0.0, 10.0
+    for _ in range(25):                          # largest clear offset of the mouth
+        g = (lo + hi) / 2.0
+        grown = mouth.offset(g, JoinType.Round)
+        if (grown ^ others).area() < 1e-6 and (grown - outline).area() < 1e-6:
+            lo = g
+        else:
+            hi = g
+    check('parede entre a boca do bolsao e sextavados/borda >= 2.0 mm', lo >= 2.0,
+          f'{lo:.2f} mm na face externa')
 
     print('\n=== 5) tampas acompanham o contorno do frame ===')
     # The frame is the reference. Comparing bounding boxes is not enough:

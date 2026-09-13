@@ -62,9 +62,14 @@ frame, which thickens only around its own screws instead of a uniform wall:
   a corner screw. There, a local pad restores the original 7.30 mm, blending
   into the thin waist smoothly enough that it needed no explicit fillet.
 - **Rear plate** additionally keeps its own pocket across the flat outer
-  face, clear of the four screw/nut bosses, leaving
-  2.50 mm to the inner face (the same floor thickness already proven by the
-  hex nut pockets).
+  face, clear of the four screw/nut bosses, leaving 2.50 mm to the inner face
+  (the same floor thickness already proven by the hex nut pockets). Neither of
+  its edges is sharp: the rim on the outer face and the corner where the wall
+  meets the floor both carry the same bevel as the plates' side edges (0.83 mm
+  high, 1.93 mm wide), so the wall runs in from the floor, straight for
+  0.84 mm, then out to the mouth. At the outer face the mouth comes within
+  3.22 mm of the side bevels (5.15 mm before it was bevelled) and 5.52 mm of
+  the hex nut pockets.
 
 Face and rear start from the same waisted outline as the frame, so all three
 meet flush at every edge; the only thing cut into that outline afterwards is
@@ -173,9 +178,11 @@ unit's switch is what it matches; if yours does not line up, adjust
 
 About 67 g in PLA if printed solid (was ~101 g before the weight reduction).
 
-- **Both plates:** flat side down on the bed, **no supports**. The counterbores
-  and hex pockets open upwards, and the waist's thin sections need no support
-  either — they are just a thinner wall, not an enclosed cavity.
+- **Both plates:** flat side down on the bed, **no supports**. The counterbores,
+  hex pockets and rear pocket open upwards, and every bevel (sides, pocket rim,
+  pocket floor) narrows as it rises, so none of them overhangs. The waist's thin
+  sections need no support either — they are just a thinner wall, not an
+  enclosed cavity.
 - **Frame:** stands on the bed. It needs a 28.8 mm bridge over the dock cutout
   and a 14 mm one over the Hold window. No supports needed on most printers.
 - The frame's port positions are not symmetric through the thickness (jack at
@@ -192,7 +199,8 @@ python3 -m venv .venv && .venv/bin/pip install manifold3d numpy trimesh
 
 [`verify_case.py`](verify_case.py) rebuilds the three parts in memory and
 checks watertightness/topology, the waist's wall thickness, every corner
-screw's clearance, the rear pocket and hex floors, that face and rear
+screw's clearance, the rear pocket and hex floors, the rear pocket's exact
+bevelled shape and the web it leaves to the nuts, that face and rear
 match the frame's full outline at the face that seats against it and never
 stick out past it (a full-outline comparison, not a bounding box -- the
 bounding box missed a 4.3 mm overhang once), that the side bevel runs every
@@ -237,7 +245,7 @@ half of each side) rather than the side bevel the STLs now have.
 It also does **not yet have the thin waist**: it is 4 screws (matching
 `generate_case.py`) with the frame lightened by a blind side-wall pocket,
 which is what the STLs did *before* this pass replaced it with the waist.
-The rear plate's own pocket is unaffected and still matches. Modelling the
+Its rear pocket is straight-walled (no rim or floor bevel). Modelling the
 waist's non-convex outline in Fusion's sketch/loft API is a materially
 bigger job than the change was in `generate_case.py`, and was left out of
 this pass — ask if you want it done. The decorative edge chamfer on the
