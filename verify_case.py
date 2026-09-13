@@ -54,7 +54,9 @@ def build_parts():
     face = gc.face(grip=lambda b, src=f'{base}/originals/simple-ipod-case-face.stl',
                    dz=gc.FACE_T - 3.501, z_top=gc.FACE_T:
                    gc.apply_grip_scallops(b, src, dz, z_top))
-    frame = gc.frame()
+    frame = gc.frame(grip=lambda b, src=f'{base}/originals/simple-ipod-case-thick-frame.stl',
+                   dz=gc.FRAME_T - 14.0, z_top=gc.FRAME_T:
+                   gc.apply_grip_scallops(b, src, dz, z_top))
     rear = gc.rear(grip=lambda b, src=f'{base}/originals/simple-ipod-case-rear.stl',
                    dz=gc.REAR_T - 3.500, z_top=gc.REAR_T:
                    gc.apply_grip_scallops(b, src, dz, z_top))
@@ -107,9 +109,12 @@ def main():
 
     print('\n=== 2) parede da cintura fina ate a cavidade (frame) ===')
     frame = parts['thick-frame']
-    # comfortably past PAD_R from each corner, so no pad contributes here
-    y0 = gc.SCREW_EDGE_Y + gc.SCREW_D/2.0 + gc.PAD_R + 3.0
-    y1 = gc.OUTER_H - y0
+    # Only the y-span that is neither a corner pad nor the grip scallop
+    # (GRIP_BOXES, bottom side only) is pure 3.00 mm waist -- the grip band
+    # legitimately carries extra material there, checked separately above.
+    y0 = max(gc.SCREW_EDGE_Y + gc.SCREW_D/2.0 + gc.PAD_R + 3.0,
+             max(y1 for (_, _, _, y1) in gc.GRIP_BOXES) + 3.0)
+    y1 = gc.OUTER_H - (gc.SCREW_EDGE_Y + gc.SCREW_D/2.0 + gc.PAD_R + 3.0)
     for y in np.linspace(y0, y1, 5):
         keep = gc.WALL_SIDE
         wall = probe_volume(frame, gc.CAVITY_CX - gc.CAVITY_W/2 - keep,
@@ -169,6 +174,32 @@ def main():
     for name in ('face', 'thick-frame', 'rear'):
         bb = bbox_at(parts[name], 1.0)
         check(f'{name:12s} contorno em z=1.0 == frame', bb == ref, f'{bb} vs {ref}')
+
+    # The bounding box above only catches a mismatch that changes the
+    # part's overall extent. A local one -- like the frame's waist not
+    # accounting for the grip scallop, which never moved the bbox because
+    # the corner pads already reach the same min/max -- needs the actual
+    # edge position sampled inside the grip band. TOLERANCE allows for the
+    # three original meshes' own scallop shapes not being identical to each
+    # other (observed up to ~0.45 mm), while still catching a multi-mm
+    # regression like the one this check was added for.
+    TOLERANCE = 1.0
+    def left_edge_x(man, y, z):
+        probe = Manifold.cube((15, 0.3, 0.3)).translate((-2, y, z))
+        got = man ^ probe
+        return got.bounding_box()[0] if got.volume() > 1e-6 else None
+
+    dz = {'face': gc.FACE_T - 3.501, 'thick-frame': gc.FRAME_T - 14.0,
+          'rear': gc.REAR_T - 3.500}
+    frame_edges = {y: left_edge_x(parts['thick-frame'], y, 1.0)
+                   for y in (15.0, 20.0, 30.0, 40.0)}
+    for name in ('face', 'rear'):
+        for y, frame_x in frame_edges.items():
+            z = dz[name] + 1.0
+            x = left_edge_x(parts[name], y, z)
+            ok = x is not None and frame_x is not None and abs(x - frame_x) <= TOLERANCE
+            check(f'{name:12s} borda do grip em y={y:.0f} <= {TOLERANCE} mm do frame',
+                  ok, f'{name}={x}  frame={frame_x}')
 
     print('\n=== 6) interferencia e encaixe na montagem ===')
     face_mounted = parts['face'].translate((0, 0, gc.FRAME_T))
