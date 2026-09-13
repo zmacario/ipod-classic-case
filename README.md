@@ -16,6 +16,8 @@ design is parametric — edit the numbers at the top and run it again.
 | screw length | nothing standard fitted | **M3 × 20, flush** |
 | Hold switch | no opening | **14.0 × 5.0 mm window** |
 | jack / dock / Hold openings | straight bores | **flared outwards** |
+| bottom wall | 5.00 mm | **3.00 mm**, same as the top |
+| outer size | 76.80 × 112.20 mm | **76.80 × 110.20 mm** |
 
 ### Screw length
 
@@ -68,6 +70,24 @@ edge:
 The jack gets half the setback of the others because a Ø10 hole in a 14 mm
 frame leaves only 1.71 mm of material above it.
 
+### Bottom wall
+
+The original frame had a 5.00 mm bottom wall and a 3.00 mm top wall. Both
+are now 3.00 mm. That works because the top corner screws already sat
+against a 3.00 mm wall, clearing the cavity by 1.87 mm and the outer corner
+by 2.02 mm; the bottom corners now mirror them exactly.
+
+The iPod cavity does not change, so **the whole case is 2.0 mm shorter**, and
+all three parts change with it. Everything positioned against the iPod — the
+cavity, the screen window, the click wheel, the jack and the Hold window — is
+measured from the cavity floor and stays exactly where it was relative to the
+device. The two mid screws move 1.0 mm to stay centred, and the side grip
+scallop keeps its distance from the bottom edge.
+
+The dock flare still fits, with 1.13 mm of straight bore ahead of it. The one
+trade-off is the material bridging the dock cutout: it is now 3 mm deep
+instead of 5 mm.
+
 ## Fit
 
 The cavity is **62.20 × 104.20 × 14.00 mm**. Width and height suit any
@@ -91,11 +111,11 @@ unit's switch is what it matches; if yours does not line up, adjust
 
 | part | thickness | volume |
 |---|---|---|
-| face | 3.50 mm | 16.0 cm³ |
-| frame | 14.00 mm | 27.3 cm³ |
-| rear | 5.00 mm | 41.4 cm³ |
+| face | 3.50 mm | 15.5 cm³ |
+| frame | 14.00 mm | 25.6 cm³ |
+| rear | 5.00 mm | 40.6 cm³ |
 
-About 105 g in PLA if printed solid.
+About 101 g in PLA if printed solid.
 
 - **Both plates:** flat side down on the bed, **no supports**. The counterbores
   and hex pockets open upwards, so nothing overhangs.

@@ -33,7 +33,7 @@ OVERLAP = 1e-3        # how far tool pieces overlap instead of abutting
 # footprint follows from the cavity plus the wall thicknesses.
 CAVITY_W, CAVITY_H, CAVITY_R = 62.20, 104.20, 6.00
 WALL_TOP    = 3.00
-WALL_BOTTOM = 5.00
+WALL_BOTTOM = 3.00                 # was 5.00 on the original design
 # (side walls: (OUTER_W - CAVITY_W) / 2 = 7.30 mm)
 
 # ---- outer footprint, shared by all three parts ---------------------------
