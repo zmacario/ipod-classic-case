@@ -17,7 +17,7 @@ design is parametric — edit the numbers at the top and run it again.
 | jack / dock / Hold openings | straight bores | **flared outwards** |
 | bottom wall | 5.00 mm | **3.00 mm**, same as the top |
 | outer size | 76.80 × 112.20 mm | **76.80 × 110.20 mm** |
-| frame side walls / rear plate | solid | **lightening pockets, ~26% less material** |
+| frame/face/rear side walls | solid, 7.30 mm all round | **thin waist, thick only at the screws** |
 
 ### Screw length
 
@@ -50,28 +50,38 @@ already hold the plates flat — and they were the design's weakest point: only
 the whole case.
 
 Back to four corner screws, the entire span between them on each side wall is
-free — nothing needs to be routed through it any more — so two blind pockets
-now use that space instead:
+free — nothing needs to be routed through it any more. Rather than keep the
+full 7.30 mm side wall and hollow it out from inside, the outer silhouette
+itself now only carries that thickness where a screw actually needs it —
+the same idea as the [iPhone 13 rugged case](https://github.com/zmacario/iphone13-rugged-case)'s
+frame, which thickens only around its own screws instead of a uniform wall:
 
-- **Frame side walls**, pocketed from the outside, leaving 3.00 mm to the
-  cavity (the same thickness already proven by the top/bottom walls) and a
-  2.00 mm mating lip top and bottom so the face and rear plates still seat on
-  a full rim.
-- **Rear plate**, one pocket across the flat outer face, clear of the four
-  screw/nut bosses and the grip scallops, leaving 2.50 mm to the inner face
-  (the same floor thickness already proven by the hex nut pockets).
+- **Side walls (all three parts)** thin down to 3.00 mm — the same thickness
+  already proven by the top/bottom walls — everywhere except within reach of
+  a corner screw. There, a local pad restores the original 7.30 mm, blending
+  into the thin waist smoothly enough that it needed no explicit fillet.
+  Face and rear share the exact same outline as the frame, so all three
+  still meet flush at every edge.
+- **Rear plate** additionally keeps its own pocket across the flat outer
+  face, clear of the four screw/nut bosses and the grip scallops, leaving
+  2.50 mm to the inner face (the same floor thickness already proven by the
+  hex nut pockets).
 
-| part | before | after |
-|---|---|---|
-| face | 15.99 cm³ | 15.61 cm³ |
-| frame | 27.43 cm³ | 18.42 cm³ |
-| rear | 41.39 cm³ | 28.89 cm³ |
-| **total** | **84.81 cm³** | **62.92 cm³** |
+The grip scallop on the sides is transplanted from the original mesh (see
+[Regenerating](#regenerating)) and keeps its original, unthinned thickness —
+a deliberately thicker band for the fingers to grip, not an oversight.
 
-About 22 cm³ less material (~26%), almost all of it from the frame and rear
-plate — the face is essentially unchanged. Both pockets are blind (nothing
-opens into the cavity or the ports) and verified hollow with the load-bearing
-walls at their intended thickness.
+| part | original | pockets only | thin waist + pads |
+|---|---|---|---|
+| face | 15.99 cm³ | 15.61 cm³ | 14.31 cm³ |
+| frame | 27.43 cm³ | 18.42 cm³ | 16.19 cm³ |
+| rear | 41.39 cm³ | 28.89 cm³ | 26.57 cm³ |
+| **total** | **84.81 cm³** | **62.92 cm³** | **57.07 cm³** |
+
+Down to about a third less material than the original design. All three
+parts are verified watertight, with the waist's wall measured at exactly
+3.00 mm to the cavity along its whole length and the corner screws keeping
+their original margins (1.87 mm to the cavity, 2.02 mm to the outer edge).
 
 ### Flared openings
 
@@ -129,17 +139,17 @@ unit's switch is what it matches; if yours does not line up, adjust
 
 | part | thickness | volume |
 |---|---|---|
-| face | 3.50 mm | 15.61 cm³ |
-| frame | 14.00 mm | 18.42 cm³ |
-| rear | 5.00 mm | 28.89 cm³ |
+| face | 3.50 mm | 14.31 cm³ |
+| frame | 14.00 mm | 16.19 cm³ |
+| rear | 5.00 mm | 26.57 cm³ |
 
-About 75 g in PLA if printed solid (was ~101 g before the lightening pockets).
+About 68 g in PLA if printed solid (was ~101 g before the weight reduction).
 
-- **Both plates:** flat side down on the bed, **no supports**. The counterbores,
-  hex pockets and lightening pockets all open upwards, so nothing overhangs.
+- **Both plates:** flat side down on the bed, **no supports**. The counterbores
+  and hex pockets open upwards, and the waist's thin sections need no support
+  either — they are just a thinner wall, not an enclosed cavity.
 - **Frame:** stands on the bed. It needs a 28.8 mm bridge over the dock cutout
-  and a 14 mm one over the Hold window; the side pockets' own lids are only
-  4.3 mm wide, trivial for any printer. No supports needed on most printers.
+  and a 14 mm one over the Hold window. No supports needed on most printers.
 - The frame's port positions are not symmetric through the thickness (jack at
   7.29, dock at 7.70 of 14), so keep the STL's z=0 face towards the same plate
   every time.
@@ -158,8 +168,17 @@ that region straight out of the original mesh. Without those files the parts
 still generate, but with plain side edges.
 
 All three parts come out watertight, with consistent winding and the expected
-topology (genus 6 / 8 / 4 — one handle per through-hole; the lightening
-pockets are blind, so they add none).
+topology (genus 6 / 8 / 4 — one handle per through-hole; the rear plate's
+lightening pocket is blind, so it adds none).
+
+The waisted outline is not convex, which the generator works around in two
+places: `outer_profile()` builds it as a 2D union rather than a hull, and its
+small edge chamfer (`outer_body()`) is a stack of straight, progressively
+inset slabs instead of the usual hull-based taper — hulling a non-convex
+profile, even piece by piece, produced a boolean the STL exporter read back
+as non-manifold. A few `.simplify()` calls (`MESH_TOL`) clean up near-duplicate
+vertices from the waist's arcs for the same reason, ahead of the jack/Hold
+cuts and the grip scallop transplant.
 
 ## Fusion model
 
@@ -172,6 +191,14 @@ Thicknesses and depths are wired to User Parameters, so *Modify → Change
 Parameters* rebuilds the model. Sketch profiles use explicit coordinates and
 are not dimension-driven.
 
-Two caveats: the script has **not been executed** — it only runs inside Fusion
-— and it reproduces the side scallop as a loft with circular ends, up to
-~0.6 mm off the original curve. The STLs are exact on that detail.
+Caveats: the script has **not been executed** — it only runs inside Fusion —
+and it reproduces the side scallop as a loft with circular ends, up to
+~0.6 mm off the original curve, where the STLs are exact.
+
+It also does **not yet have the thin waist**: it is 4 screws (matching
+`generate_case.py`) with the frame lightened by a blind side-wall pocket,
+which is what the STLs did *before* this pass replaced it with the waist.
+The rear plate's own pocket is unaffected and still matches. Modelling the
+waist's non-convex outline and its stepped chamfer in Fusion's sketch/loft
+API is a materially bigger job than the change was in `generate_case.py`,
+and was left out of this pass — ask if you want it done.

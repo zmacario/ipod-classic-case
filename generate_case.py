@@ -7,7 +7,7 @@ these changes:
   * 5.00 mm rear plate, so an M3 x 20 screw ends flush
   * opening for the Hold switch
   * flared (countersunk) wall openings for jack, dock and Hold
-  * lightening pockets in the frame's side walls and the rear plate
+  * a thin waist on all three parts, with material only where the screws need it
 
 All dimensions in millimetres. Edit the parameters and run again:
 
@@ -22,7 +22,10 @@ from manifold3d import Manifold, CrossSection, JoinType
 m3.set_min_circular_angle(3.0)
 m3.set_min_circular_edge_length(0.25)
 
-OVERLAP = 1e-3        # how far tool pieces overlap instead of abutting
+OVERLAP  = 1e-3       # how far tool pieces overlap instead of abutting
+MESH_TOL = 0.02        # simplify() tolerance; cleans up near-duplicate
+                       # vertices from the waisted profile's arcs so later
+                       # booleans (the jack/Hold cuts) stay robust
 
 # ============================================================================
 # PARAMETERS
@@ -34,12 +37,26 @@ OVERLAP = 1e-3        # how far tool pieces overlap instead of abutting
 CAVITY_W, CAVITY_H, CAVITY_R = 62.20, 104.20, 6.00
 WALL_TOP    = 3.00
 WALL_BOTTOM = 3.00                 # was 5.00 on the original design
-# (side walls: (OUTER_W - CAVITY_W) / 2 = 7.30 mm)
 
 # ---- outer footprint, shared by all three parts ---------------------------
+# OUTER_W/OUTER_H are the bounding box the corners still reach -- the screws
+# sit there and need the full old 7.30 mm side wall. Between them, the side
+# wall thins down to WALL_SIDE: a local pad restores the outer width only
+# within PAD_R of each corner, the same trick as the iPhone 13 case's frame,
+# which thickens only around its screws instead of carrying full wall
+# thickness all the way round. See outer_profile()/outer_body() below.
 OUTER_W   = 76.80
 OUTER_H   = CAVITY_H + WALL_TOP + WALL_BOTTOM
-CORNER_R  = 7.50                   # plan-view corner radius
+CORNER_R  = 7.50                   # plan-view corner radius, and the pads' anchor
+WALL_SIDE = 3.00                   # side wall thickness away from any pad
+OUTER_W_THIN = CAVITY_W + 2*WALL_SIDE
+# PAD_R must clear two things: the corner screw (>= 2.00 mm of material
+# beyond the hole, satisfied from ~4 mm already) and, less obviously, the
+# waist's own top/bottom edges. Below ~8.9 mm the pad and the thin waist
+# both recede from the corner right at y=0/y=OUTER_H without covering it
+# between them, leaving an actual sliver-thin notch in the outline there.
+# 9.50 clears that with margin.
+PAD_R = 9.50
 CAVITY_CX = OUTER_W / 2.0
 CAVITY_CY = WALL_BOTTOM + CAVITY_H / 2.0
 
@@ -59,22 +76,13 @@ SCREWS = [(SCREW_EDGE_X,           SCREW_EDGE_Y),
           (SCREW_EDGE_X,           OUTER_H - SCREW_EDGE_Y),
           (OUTER_W - SCREW_EDGE_X, OUTER_H - SCREW_EDGE_Y)]
 
-# ---- weight reduction: lightening pockets ---------------------------------
-# Blind pockets cut from the outside, well clear of every screw, nut and the
-# grip scallops, so the fastening points and mating surfaces keep their full
-# strength. Both leave the same floor thickness already proven elsewhere in
-# the design (the 3.00 mm top/bottom walls, the 2.50 mm hex nut web).
-
-# Frame side walls: pocketed from each outer face, leaving FRAME_POCKET_KEEP
-# to the cavity and a FRAME_POCKET_LIP mating lip top and bottom so the face
-# and rear plates still seat on a full rim.
-FRAME_POCKET_KEEP  = 3.00
-FRAME_POCKET_LIP   = 2.00
-FRAME_POCKET_CLEAR = 6.00          # clearance kept beyond each screw hole
-
-# Rear plate: one big pocket in the flat outer face, leaving a rim clear of
-# the 4 corner screws/nuts (plus REAR_POCKET_CLEAR beyond each hex nut) and
-# of the grip scallops, and REAR_POCKET_KEEP of material to the inner face.
+# ---- weight reduction: rear plate pocket -----------------------------------
+# The waisted outer profile above already thins the perimeter of all three
+# parts. The rear plate's flat outer face gets one more pocket on top of
+# that: clear of the 4 corner screws/nuts (plus REAR_POCKET_CLEAR beyond
+# each hex nut) and of the grip scallops, leaving REAR_POCKET_KEEP of
+# material to the inner face -- the same floor thickness already proven by
+# the hex nut pockets.
 REAR_POCKET_KEEP  = 2.50
 REAR_POCKET_CLEAR = 3.00
 REAR_POCKET_R     = 4.00           # pocket corner radius
@@ -193,17 +201,63 @@ def taper_y(cs_in, cs_out, y_in, y_out, margin=3.0):
     return body.translate((0, y_in, 0))
 
 
-def frame_pocket():
-    """Blind pocket on the outer face of each side wall (see FRAME_POCKET_*).
-    Only possible with 4 screws: with the mid ones gone, the whole span
-    between the corner screws is plain wall with nothing routed through it."""
-    side_wall = (OUTER_W - CAVITY_W) / 2.0
-    depth = side_wall - FRAME_POCKET_KEEP
-    y0 = SCREW_EDGE_Y + SCREW_D/2.0 + FRAME_POCKET_CLEAR
-    y1 = OUTER_H - y0
-    z0, z1 = FRAME_POCKET_LIP, FRAME_T - FRAME_POCKET_LIP
-    box = Manifold.cube((depth + 1.0, y1 - y0, z1 - z0))
-    return box.translate((-1.0, y0, z0)) + box.translate((OUTER_W - depth, y0, z0))
+# Corner pad anchors: the same arc centres as the OUTER_W x OUTER_H rounded
+# rectangle's own corners, since a pad is just that full corner restored
+# locally (see outer_profile()).
+PAD_CENTERS = [(CORNER_R,           CORNER_R),
+               (OUTER_W - CORNER_R, CORNER_R),
+               (CORNER_R,           OUTER_H - CORNER_R),
+               (OUTER_W - CORNER_R, OUTER_H - CORNER_R)]
+
+
+def _outer_pieces(inset=0.0):
+    """The waisted profile as a list of CONVEX pieces: the thin waist itself,
+    plus each corner pad (the full OUTER_W x OUTER_H corner, clipped to a
+    disc around it). Kept apart because Manifold.batch_hull always returns
+    something convex -- hulling the union directly would fill the waist
+    back in. Summing these pieces gives the same shape as outer_profile()."""
+    thin  = rrect(OUTER_W_THIN, OUTER_H, CORNER_R, OUTER_W/2, OUTER_H/2)
+    thick = rrect(OUTER_W,      OUTER_H, CORNER_R, OUTER_W/2, OUTER_H/2)
+    pieces = [thin] + [thick ^ CrossSection.circle(PAD_R).translate((px, py))
+                        for (px, py) in PAD_CENTERS]
+    return [p.offset(-inset, JoinType.Round) if inset else p for p in pieces]
+
+
+def outer_profile(inset=0.0):
+    """Plan-view outline shared by all three parts: a thin waist between the
+    screws (WALL_SIDE to the cavity), with a pad restoring the original
+    7.30 mm wall right where each corner screw needs it."""
+    pieces = _outer_pieces(inset)
+    out = pieces[0]
+    for p in pieces[1:]:
+        out = out + p
+    return out
+
+
+def outer_body(z_top, chamf_z, setback, steps=10):
+    """Extrudes the waisted outer profile from 0 to z_top, with the top
+    chamfered inward by `setback` above `chamf_z`.
+
+    A hull-based taper (as used everywhere else for a chamfer) needs a
+    convex profile -- Manifold.batch_hull always returns something convex,
+    so hulling this non-convex waist would fill it back in. Decomposing it
+    into convex pieces and hulling each one separately does not work either:
+    unioning the results left a degenerate seam wherever two pieces'
+    tapers met (a jack/Hold cut through it came out non-manifold).
+
+    So the chamfer is approximated as a stack of `steps` straight,
+    progressively-inset slabs -- no hull anywhere, since a plain extrusion
+    never cares whether its profile is convex. Each slab is a strict subset
+    of the one below it (the profile only ever shrinks), so overlapping it
+    down by OVERLAP is always safe, the same reasoning as in taper(). At
+    1-2 mm of chamfer height this reads as a smooth bevel once printed."""
+    body = prism(outer_profile(), 0, chamf_z + OVERLAP)
+    for i in range(1, steps + 1):
+        z0 = chamf_z + (z_top - chamf_z) * (i - 1) / steps
+        z1 = chamf_z + (z_top - chamf_z) * i / steps
+        inset = setback * i / steps
+        body = body + prism(outer_profile(inset=inset), z0 - OVERLAP, z1)
+    return body
 
 
 def rear_pocket():
@@ -238,11 +292,7 @@ def wall_opening(cs, setback, y_in, y_out):
 # ============================================================================
 
 def face(grip=None):
-    body = Manifold.batch_hull([
-        prism(rrect(OUTER_W, OUTER_H, CORNER_R, OUTER_W/2, OUTER_H/2), 0, FACE_CHAMF_Z),
-        prism(rrect(OUTER_W, OUTER_H, CORNER_R, OUTER_W/2, OUTER_H/2)
-              .offset(-FACE_CHAMF_SETBACK, JoinType.Round), FACE_T - 1e-4, FACE_T),
-    ])
+    body = outer_body(FACE_T, FACE_CHAMF_Z, FACE_CHAMF_SETBACK)
 
     screen = taper(rrect(SCREEN_W, SCREEN_H, SCREEN_R, SCREEN_CX, SCREEN_CY),
                    SCREEN_CHAMF_Z,
@@ -271,14 +321,13 @@ def face(grip=None):
 
 
 def frame():
-    body = prism(rrect(OUTER_W, OUTER_H, CORNER_R, OUTER_W/2, OUTER_H/2), 0, FRAME_T)
+    body = prism(outer_profile(), 0, FRAME_T).simplify(MESH_TOL)
     body = body - prism(rrect(CAVITY_W, CAVITY_H, CAVITY_R, CAVITY_CX, CAVITY_CY),
                         -2, FRAME_T + 2)
 
     for (x, y) in SCREWS:
         body = body - Manifold.cylinder(FRAME_T + 4, SCREW_D/2, SCREW_D/2, 0, False)\
                               .translate((x, y, -2))
-    body = body - frame_pocket()
 
     y_top = CAVITY_CY + CAVITY_H/2.0     # inner face of the top wall
     y_bot = CAVITY_CY - CAVITY_H/2.0     # inner face of the bottom wall
@@ -300,11 +349,7 @@ def frame():
 
 def rear(grip=None):
     z_chamf = REAR_T - REAR_CHAMF_RISE
-    body = Manifold.batch_hull([
-        prism(rrect(OUTER_W, OUTER_H, CORNER_R, OUTER_W/2, OUTER_H/2), 0, z_chamf),
-        prism(rrect(OUTER_W, OUTER_H, CORNER_R, OUTER_W/2, OUTER_H/2)
-              .offset(-REAR_CHAMF_SETBACK, JoinType.Round), REAR_T - 1e-4, REAR_T),
-    ])
+    body = outer_body(REAR_T, z_chamf, REAR_CHAMF_SETBACK)
     if grip:                                      # before the screws, see face()
         body = grip(body)
     for (x, y) in SCREWS:
@@ -354,7 +399,9 @@ def apply_grip_scallops(body, original_stl, dz, z_top):
         box = Manifold.cube((x1 - x0, y1 - y0, z_top - dz + 1.0))\
                       .translate((x0, y0, dz))
         body = (body - box) + (orig ^ box)
-    return body
+    # the STL-derived mesh brings its own tessellation; simplify cleans up
+    # the seam it leaves against the generated body (see MESH_TOL)
+    return body.simplify(MESH_TOL)
 
 # ============================================================================
 
