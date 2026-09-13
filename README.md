@@ -229,6 +229,7 @@ About 67 g in PLA if printed solid (was ~101 g before the weight reduction).
 python3 -m venv .venv && .venv/bin/pip install manifold3d numpy trimesh
 .venv/bin/python3 generate_case.py            # writes into stl/
 .venv/bin/python3 verify_case.py              # checks the result
+.venv/bin/python3 fusion/verify_fusion.py     # checks the Fusion script still matches
 ```
 
 [`verify_case.py`](verify_case.py) rebuilds the three parts in memory and
@@ -282,9 +283,13 @@ outline, the bevels and the corner entrances are computed from the constants at
 the top of the script when it runs: edit those and run it again. Sketch
 profiles use explicit coordinates and are not dimension-driven.
 
-Caveat: the script has **not been executed in Fusion** — it only runs there. It
-was checked by replaying it against a stand-in for the Fusion API that builds
-each feature's solid, and all three parts matched `generate_case.py`'s to within
-tessellation (nothing thicker than 0.1 mm apart). The stand-in cannot catch a
-mistake in how the real API behaves, so the first run inside Fusion is the real
-test; if it stops with an error, the message names the part it was building.
+Caveat: the script has **not been executed in Fusion** — it only runs there.
+[`fusion/verify_fusion.py`](fusion/verify_fusion.py) checks it instead, by
+replaying it against a stand-in for the Fusion API that builds each feature's
+solid: all three parts match `generate_case.py`'s to within tessellation
+(nothing thicker than 0.1 mm apart, same topology). Run it after changing
+either script; `--mutate <name>` plants a known defect (no bevels, no corner
+entrances, a thicker waist...) to confirm the check still catches it. The
+stand-in cannot catch a mistake in how the real API behaves, so the first run
+inside Fusion is the real test; if it stops with an error, the message names
+the part it was building.

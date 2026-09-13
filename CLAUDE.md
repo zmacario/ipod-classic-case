@@ -8,6 +8,11 @@ other way round. Keep verification proportional to the change.
 - **Always**, after any change to `generate_case.py` or the STL parts: run
   `.venv/bin/python3 verify_case.py` (seconds). If it fails, fix the model
   before reporting the change as done, and mention the result in one line.
+- **Always**, after any change to `generate_case.py` or
+  `fusion/ipod_case/ipod_case.py`: run `.venv/bin/python3 fusion/verify_fusion.py`
+  (about 10 s). If it fails, the Fusion script no longer builds the same parts:
+  make the same change there before reporting the change as done, and mention
+  the result in one line.
 - **Only for big changes, or when the owner asks**: invoke the
   `ipod-case-reviewer` subagent (`.claude/agents/ipod-case-reviewer.md`) for
   an independent review, and mutation-test any new checks. A big change is
@@ -27,6 +32,12 @@ This applies to changes made *in this session and in future ones*.
   thickness, screw clearances, mating-surface alignment across all three
   parts, assembly interference). It regenerates the parts in memory --
   `generate_case.py` does not need to be run first.
+- `fusion/verify_fusion.py` replays the Fusion script against a stand-in for
+  the Fusion API that builds real solids, and compares each part with
+  `generate_case.py`'s. It cannot catch a mistake in how the real API
+  behaves; `--mutate <name>` plants a known defect to confirm the comparison
+  still catches it. If the Fusion script starts using an API call the
+  stand-in does not model, extend the stand-in rather than skipping the check.
 - `.venv/` (gitignored) holds `manifold3d`, `numpy` and `trimesh` for
   running both scripts. Create it with
   `python3 -m venv .venv && .venv/bin/pip install manifold3d numpy trimesh`
