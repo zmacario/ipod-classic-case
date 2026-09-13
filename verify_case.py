@@ -10,8 +10,8 @@ checks the things a slicer or an assembly will not forgive:
   * every corner screw keeps its known clearance to the cavity and the
     outer edge
   * the rear plate's hex/lightening pocket floors are at their design depth
-  * face, frame and rear share the exact same outer silhouette at every
-    shared height
+  * face and rear follow the frame's outline: identical to it at the face
+    that seats against the frame, and never sticking out past it
   * the three parts do not interfere when assembled, and face/rear seat
     flush against the frame with no gap
 
@@ -54,9 +54,7 @@ def build_parts():
     face = gc.face(grip=lambda b, src=f'{base}/originals/simple-ipod-case-face.stl',
                    dz=gc.FACE_T - 3.501, z_top=gc.FACE_T:
                    gc.apply_grip_scallops(b, src, dz, z_top))
-    frame = gc.frame(grip=lambda b, src=f'{base}/originals/simple-ipod-case-thick-frame.stl',
-                   dz=gc.FRAME_T - 14.0, z_top=gc.FRAME_T:
-                   gc.apply_grip_scallops(b, src, dz, z_top))
+    frame = gc.frame()
     rear = gc.rear(grip=lambda b, src=f'{base}/originals/simple-ipod-case-rear.stl',
                    dz=gc.REAR_T - 3.500, z_top=gc.REAR_T:
                    gc.apply_grip_scallops(b, src, dz, z_top))
@@ -109,12 +107,9 @@ def main():
 
     print('\n=== 2) parede da cintura fina ate a cavidade (frame) ===')
     frame = parts['thick-frame']
-    # Only the y-span that is neither a corner pad nor the grip scallop
-    # (GRIP_BOXES, bottom side only) is pure 3.00 mm waist -- the grip band
-    # legitimately carries extra material there, checked separately above.
-    y0 = max(gc.SCREW_EDGE_Y + gc.SCREW_D/2.0 + gc.PAD_R + 3.0,
-             max(y1 for (_, _, _, y1) in gc.GRIP_BOXES) + 3.0)
-    y1 = gc.OUTER_H - (gc.SCREW_EDGE_Y + gc.SCREW_D/2.0 + gc.PAD_R + 3.0)
+    # comfortably past PAD_R from each corner, so no pad contributes here
+    y0 = gc.SCREW_EDGE_Y + gc.SCREW_D/2.0 + gc.PAD_R + 3.0
+    y1 = gc.OUTER_H - y0
     for y in np.linspace(y0, y1, 5):
         keep = gc.WALL_SIDE
         wall = probe_volume(frame, gc.CAVITY_CX - gc.CAVITY_W/2 - keep,
@@ -162,44 +157,52 @@ def main():
               abs(hex_floor - expected_hex_floor) < 1e-3,
               f'{hex_floor:.4f} mm3 (esperado {expected_hex_floor:.4f})')
 
-    print('\n=== 5) mesmo contorno externo nas 3 pecas ===')
-    def bbox_at(man, z):
-        polys = man.slice(z).to_polygons()
-        xs = [x for p in polys for (x, y) in p]
-        ys = [y for p in polys for (x, y) in p]
-        return (round(min(xs), 2), round(max(xs), 2),
-                round(min(ys), 2), round(max(ys), 2)) if xs else None
+    print('\n=== 5) tampas acompanham o contorno do frame ===')
+    # The frame is the reference. Comparing bounding boxes is not enough:
+    # plates that overhung the frame by 4.3 mm along the grip band passed a
+    # bbox check, because the corner pads already set the same extremes.
+    # So full outlines are compared, three ways:
+    #   a) at the face that seats on the frame, against the frame's own
+    #      seating face (z = FRAME_T for the face plate, z = 0 for the rear)
+    #   b) at several heights, outside GRIP_BOXES, the plate must still be
+    #      exactly the frame's outline -- catches a notch or a bevel coming
+    #      back anywhere else, which (a) and (c) cannot see
+    #   c) no plate volume anywhere outside the frame's outline
+    # Inside GRIP_BOXES the plates are allowed to recede (the scallop).
+    def outer_outline(cs):
+        """Outer boundaries only (counter-clockwise contours), holes dropped."""
+        keep = []
+        for p in cs.to_polygons():
+            n = len(p)
+            area2 = sum(p[i][0]*p[(i+1) % n][1] - p[(i+1) % n][0]*p[i][1] for i in range(n))
+            if area2 > 0:
+                keep.append([tuple(v) for v in p])
+        return CrossSection(keep)
 
-    ref = bbox_at(parts['thick-frame'], 1.0)
-    for name in ('face', 'thick-frame', 'rear'):
-        bb = bbox_at(parts[name], 1.0)
-        check(f'{name:12s} contorno em z=1.0 == frame', bb == ref, f'{bb} vs {ref}')
+    def xor_area(a, b):
+        return (a - b).area() + (b - a).area()
 
-    # The bounding box above only catches a mismatch that changes the
-    # part's overall extent. A local one -- like the frame's waist not
-    # accounting for the grip scallop, which never moved the bbox because
-    # the corner pads already reach the same min/max -- needs the actual
-    # edge position sampled inside the grip band. TOLERANCE allows for the
-    # three original meshes' own scallop shapes not being identical to each
-    # other (observed up to ~0.45 mm), while still catching a multi-mm
-    # regression like the one this check was added for.
-    TOLERANCE = 1.0
-    def left_edge_x(man, y, z):
-        probe = Manifold.cube((15, 0.3, 0.3)).translate((-2, y, z))
-        got = man ^ probe
-        return got.bounding_box()[0] if got.volume() > 1e-6 else None
+    TOL_AREA, TOL_VOL = 0.5, 0.5        # simplify() noise measures < 0.1
+    grip_mask = None
+    for (x0, x1, y0, y1) in gc.GRIP_BOXES:
+        sq = CrossSection.square((x1 - x0, y1 - y0)).translate((x0, y0))
+        grip_mask = sq if grip_mask is None else grip_mask + sq
 
-    dz = {'face': gc.FACE_T - 3.501, 'thick-frame': gc.FRAME_T - 14.0,
-          'rear': gc.REAR_T - 3.500}
-    frame_edges = {y: left_edge_x(parts['thick-frame'], y, 1.0)
-                   for y in (15.0, 20.0, 30.0, 40.0)}
-    for name in ('face', 'rear'):
-        for y, frame_x in frame_edges.items():
-            z = dz[name] + 1.0
-            x = left_edge_x(parts[name], y, z)
-            ok = x is not None and frame_x is not None and abs(x - frame_x) <= TOLERANCE
-            check(f'{name:12s} borda do grip em y={y:.0f} <= {TOLERANCE} mm do frame',
-                  ok, f'{name}={x}  frame={frame_x}')
+    seat = {'face': outer_outline(frame.slice(gc.FRAME_T - 0.05)),
+            'rear': outer_outline(frame.slice(0.05))}
+    frame_fp = outer_outline(frame.project())
+    for name, t in (('face', gc.FACE_T), ('rear', gc.REAR_T)):
+        plate = parts[name]
+        x = xor_area(outer_outline(plate.slice(0.05)), seat[name])
+        check(f'{name:12s} contorno na face de contato == frame', x < TOL_AREA,
+              f'diferenca {x:.3f} mm2')
+        for z in (0.05, t / 2.0, t - 0.05):
+            x = xor_area(outer_outline(plate.slice(z)) - grip_mask, frame_fp - grip_mask)
+            check(f'{name:12s} z={z:4.2f} contorno == frame fora do grip', x < TOL_AREA,
+                  f'diferenca {x:.3f} mm2')
+        outside = (plate - gc.prism(frame_fp, -1.0, t + 1.0)).volume()
+        check(f'{name:12s} nada para fora do contorno do frame', outside < TOL_VOL,
+              f'{outside:.3f} mm3 para fora')
 
     print('\n=== 6) interferencia e encaixe na montagem ===')
     face_mounted = parts['face'].translate((0, 0, gc.FRAME_T))
@@ -208,6 +211,12 @@ def main():
     ri = (frame ^ rear_mounted).volume()
     check('frame x face sem interferencia', fi < 1e-6, f'{fi:.6f} mm3')
     check('frame x rear sem interferencia', ri < 1e-6, f'{ri:.6f} mm3')
+    # zero interference alone would also pass a plate floating 1 mm away:
+    # pushed 0.05 mm into the frame, each plate must start to overlap it
+    fc = (frame ^ face_mounted.translate((0, 0, -0.05))).volume()
+    rc = (frame ^ rear_mounted.translate((0, 0, 0.05))).volume()
+    check('face encosta no frame (sem folga)', fc > 1.0, f'{fc:.2f} mm3 a 0.05 mm')
+    check('rear encosta no frame (sem folga)', rc > 1.0, f'{rc:.2f} mm3 a 0.05 mm')
 
     print('\n=== 7) resumo dimensional ===')
     total = sum(m.volume() for m in parts.values()) / 1000.0

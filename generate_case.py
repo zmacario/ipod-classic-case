@@ -290,14 +290,8 @@ def face(grip=None):
     return body
 
 
-def frame(grip=None):
+def frame():
     body = prism(outer_profile(), 0, FRAME_T).simplify(MESH_TOL)
-    # Before the cavity cut, screws or anything else: the grip boxes reach a
-    # little past the cavity's edge (see GRIP_BOXES), and the cavity cut
-    # that follows re-establishes it regardless of what the transplant put
-    # there, the same way it re-establishes it over whatever the waist did.
-    if grip:
-        body = grip(body)
     body = body - prism(rrect(CAVITY_W, CAVITY_H, CAVITY_R, CAVITY_CX, CAVITY_CY),
                         -2, FRAME_T + 2)
 
@@ -338,17 +332,13 @@ def rear(grip=None):
 # ============================================================================
 # SIDE GRIP SCALLOPS
 # ============================================================================
-# All three parts carry a scallop along the side edges (y ~ 10..50) that
-# forms a finger grip: a chamfer of slope 2.324 (the same as the click
-# wheel) starting at z ~ 0.82 and running to the outer face. Its ends are
-# not circular arcs, so instead of approximating the shape we transplant
-# that region straight out of the original STL. The new part then matches
-# the original exactly there.
-#
-# The frame needs this too, not just the plates: its own waist thins the
-# side wall right through this same y-span, and without the transplant its
-# edge sat up to ~3.8 mm inside the plates' -- an actual mismatch, not a
-# cosmetic one, since it left face and rear overhanging the frame there.
+# Both plates carry a scallop along the side edges (y ~ 10..50) that forms a
+# finger grip: a chamfer of slope 2.324 (the same as the click wheel) starting
+# at z ~ 0.82 and running to the outer face. Its ends are not circular arcs, so
+# instead of approximating the shape we transplant that region straight out of
+# the original STL, clipped to the waisted outline so the plates still follow
+# the frame's contour. The frame itself has no scallop and stays a plain
+# extrusion of outer_profile().
 
 def _stl_manifold(path):
     import numpy as np, struct
@@ -376,10 +366,14 @@ def apply_grip_scallops(body, original_stl, dz, z_top):
         print(f'  warning: {original_stl} missing - grip scallops not applied')
         return body
     orig = _stl_manifold(original_stl).translate((0, 0, dz))
+    # The original mesh still has the old full-width side wall, so it is
+    # clipped to the waisted outline: the plate keeps the scallop only where
+    # it cuts inside the frame's contour, and never overhangs the frame.
+    footprint = prism(outer_profile(), -1.0, z_top + 2.0)
     for (x0, x1, y0, y1) in GRIP_BOXES:
         box = Manifold.cube((x1 - x0, y1 - y0, z_top - dz + 1.0))\
                       .translate((x0, y0, dz))
-        body = (body - box) + (orig ^ box)
+        body = (body - box) + (orig ^ box ^ footprint)
     # the STL-derived mesh brings its own tessellation; simplify cleans up
     # the seam it leaves against the generated body (see MESH_TOL)
     return body.simplify(MESH_TOL)
@@ -411,9 +405,9 @@ if __name__ == '__main__':
     out_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(base, 'stl')
 
     parts = [
-        ('face',        face,  'originals/simple-ipod-case-face.stl',        FACE_T - 3.501, FACE_T),
-        ('thick-frame', frame, 'originals/simple-ipod-case-thick-frame.stl', FRAME_T - 14.0, FRAME_T),
-        ('rear',        rear,  'originals/simple-ipod-case-rear.stl',        REAR_T - 3.500, REAR_T),
+        ('face',        face,  'originals/simple-ipod-case-face.stl', FACE_T - 3.501, FACE_T),
+        ('thick-frame', frame, None,                        0.0,            FRAME_T),
+        ('rear',        rear,  'originals/simple-ipod-case-rear.stl', REAR_T - 3.500, REAR_T),
     ]
     for name, build, original, dz, z_top in parts:
         if original:

@@ -66,37 +66,35 @@ frame, which thickens only around its own screws instead of a uniform wall:
   2.50 mm to the inner face (the same floor thickness already proven by the
   hex nut pockets).
 
-Face and rear share the exact same outline as the frame, at every height —
-which also meant dropping the decorative edge chamfer the original design
-had on both plates: the waist isn't convex, so it fought the usual
-hull-based taper that built that bevel (see
-[Regenerating](#regenerating)). Face and rear are now a plain extrusion of
-the same waisted outline as the frame, so all three meet flush at every
-edge, with no bevel where they meet.
+Face and rear are a plain extrusion of the same waisted outline as the
+frame, so all three meet flush at every edge. That also meant dropping the
+decorative edge chamfer the original design had on both plates: the waist
+isn't convex, so it fought the usual hull-based taper that built that bevel
+(see [Regenerating](#regenerating)).
 
-The grip scallop on the sides is transplanted from the original mesh (see
-[Regenerating](#regenerating)) and keeps its original, unthinned thickness —
-a deliberately thicker band for the fingers to grip, not an oversight. All
-**three** parts need that transplant, the frame included: its waist runs
-right through the same span, and without it the frame's edge sat up to
-3.8 mm inside the plates' there -- an early version of this change shipped
-with only the plates transplanted, which is exactly that bug. `verify_case.py`
-now checks the grip band's edge position against the frame specifically, so
-it cannot silently come back.
+The frame is the reference outline. The plates' side grip scallop is still
+transplanted from the original mesh (see [Regenerating](#regenerating)), but
+that mesh has the old full-width side wall, so the transplant is clipped to
+the waisted outline: the scallop survives only as a bevel where it cuts
+inside the frame's contour, near each plate's outer face, and nothing sticks
+out past the frame. One leftover: at the four bottom corners, between
+y ≈ 7 and 10 mm, the transplant still carries a short stretch of the
+original's decorative edge chamfer (1.47 mm on the face, 1.13 mm on the
+rear), recessed inside the outline. An earlier version transplanted it unclipped, which left
+both plates overhanging the frame by up to 4.3 mm along the grip band;
+`verify_case.py` now compares the full outline, so that cannot pass again.
 
 | part | original | pockets only | thin waist + pads |
 |---|---|---|---|
-| face | 15.99 cm³ | 15.61 cm³ | 14.70 cm³ |
-| frame | 27.43 cm³ | 18.42 cm³ | 20.74 cm³ |
-| rear | 41.39 cm³ | 28.89 cm³ | 26.83 cm³ |
-| **total** | **84.81 cm³** | **62.92 cm³** | **62.28 cm³** |
+| face | 15.99 cm³ | 15.61 cm³ | 14.10 cm³ |
+| frame | 27.43 cm³ | 18.42 cm³ | 16.19 cm³ |
+| rear | 41.39 cm³ | 28.89 cm³ | 26.21 cm³ |
+| **total** | **84.81 cm³** | **62.92 cm³** | **56.50 cm³** |
 
-Still meaningfully lighter than the original, though the frame's own grip
-transplant gives some of the pocket-based savings back — that material was
-never optional, it is what keeps the frame flush with the plates. All three
-parts are verified watertight, with the waist's wall measured at exactly
-3.00 mm to the cavity outside the grip band, and the corner screws keeping
-their original margins (1.87 mm to the cavity, 2.02 mm to the outer edge).
+A third less material than the original design. All three parts are
+verified watertight, with the waist's wall measured at exactly 3.00 mm to
+the cavity along its whole length and the corner screws keeping their
+original margins (1.87 mm to the cavity, 2.02 mm to the outer edge).
 
 ### Flared openings
 
@@ -154,11 +152,11 @@ unit's switch is what it matches; if yours does not line up, adjust
 
 | part | thickness | volume |
 |---|---|---|
-| face | 3.50 mm | 14.70 cm³ |
-| frame | 14.00 mm | 20.74 cm³ |
-| rear | 5.00 mm | 26.83 cm³ |
+| face | 3.50 mm | 14.10 cm³ |
+| frame | 14.00 mm | 16.19 cm³ |
+| rear | 5.00 mm | 26.21 cm³ |
 
-About 74 g in PLA if printed solid (was ~101 g before the weight reduction).
+About 67 g in PLA if printed solid (was ~101 g before the weight reduction).
 
 - **Both plates:** flat side down on the bed, **no supports**. The counterbores
   and hex pockets open upwards, and the waist's thin sections need no support
@@ -179,24 +177,21 @@ python3 -m venv .venv && .venv/bin/pip install manifold3d numpy trimesh
 
 [`verify_case.py`](verify_case.py) rebuilds the three parts in memory and
 checks watertightness/topology, the waist's wall thickness, every corner
-screw's clearance, the rear pocket and hex floors, that face/frame/rear
-share the same outer silhouette (including the grip band's exact edge
-position, not just the overall bounding box -- a mismatch confined to one
-local region does not necessarily move the box), and that the assembled
-parts do not interfere. It replaces the one-off scratchpad scripts this
-project used to re-derive these checks after every change. A Claude Code
-subagent (`.claude/agents/ipod-case-reviewer.md`) runs it automatically,
-plus a judgment pass on whether the design still keeps the iPod secure and
-easy to handle, after any change made through Claude.
+screw's clearance, the rear pocket and hex floors, that face and rear
+match the frame's full outline at the face that seats against it and never
+stick out past it (a full-outline comparison, not a bounding box -- the
+bounding box missed a 4.3 mm overhang once), and that the assembled parts do
+not interfere. It replaces the one-off scratchpad scripts this project used to
+re-derive these checks after every change. A Claude Code subagent
+(`.claude/agents/ipod-case-reviewer.md`) runs it automatically, plus a
+judgment pass on whether the design still keeps the iPod secure and easy to
+handle, after any change made through Claude.
 
-The generator reads all three original STLs from `originals/`. It needs
-them: every part carries a finger scallop along the side edges whose ends
-are not circular arcs, so rather than approximating the shape the script
-transplants that region straight out of the matching original mesh (the
-frame's own original, not just the two plates' -- see "Weight reduction"
-above for what skipping it did). Without those files the parts still
-generate, but with plain side edges, and the frame's would then be flush
-with the plates only outside the grip band.
+The generator reads the two original STLs from `originals/`. It needs them:
+both plates carry a finger scallop along the side edges whose ends are not
+circular arcs, so rather than approximating the shape the script transplants
+that region straight out of the original mesh. Without those files the parts
+still generate, but with plain side edges.
 
 All three parts come out watertight, with consistent winding and the expected
 topology (genus 6 / 8 / 4 — one handle per through-hole; the rear plate's
