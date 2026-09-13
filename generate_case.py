@@ -22,13 +22,26 @@ from manifold3d import Manifold, CrossSection, JoinType
 m3.set_min_circular_angle(3.0)
 m3.set_min_circular_edge_length(0.25)
 
+OVERLAP = 1e-3        # how far tool pieces overlap instead of abutting
+
 # ============================================================================
 # PARAMETERS
 # ============================================================================
 
+# ---- iPod cavity and walls ------------------------------------------------
+# The cavity is sized to the iPod and never moves relative to it; the outer
+# footprint follows from the cavity plus the wall thicknesses.
+CAVITY_W, CAVITY_H, CAVITY_R = 62.20, 104.20, 6.00
+WALL_TOP    = 3.00
+WALL_BOTTOM = 5.00
+# (side walls: (OUTER_W - CAVITY_W) / 2 = 7.30 mm)
+
 # ---- outer footprint, shared by all three parts ---------------------------
-OUTER_W, OUTER_H = 76.80, 112.20
-CORNER_R         = 7.50            # plan-view corner radius
+OUTER_W   = 76.80
+OUTER_H   = CAVITY_H + WALL_TOP + WALL_BOTTOM
+CORNER_R  = 7.50                   # plan-view corner radius
+CAVITY_CX = OUTER_W / 2.0
+CAVITY_CY = WALL_BOTTOM + CAVITY_H / 2.0
 
 # ---- screws ---------------------------------------------------------------
 SCREW_D = 3.15                     # M3 clearance hole
@@ -37,9 +50,18 @@ SCREW_D = 3.15                     # M3 clearance hole
 # and there is only 1.253 mm of budget to split between the counterbore
 # clearing the edge chamfer and the wall left over to the iPod cavity.
 # At x=4.75 that budget lands as 0.32 mm and 0.97 mm.
-SCREWS = [(5.00,   4.50), (71.80,   4.50),
-          (5.00, 107.70), (71.80, 107.70),
-          (4.75,  56.10), (72.05,  56.10)]
+SCREW_EDGE_X = 5.00                # corner screws, from the side edges
+SCREW_EDGE_Y = 4.50                # corner screws, from the top/bottom edges
+SCREW_MID_X  = 4.75                # mid side-wall screws, from the side edges
+# SCREW_EDGE_Y = 4.50 suits a 3.00 mm end wall: it is where the original top
+# corners already sat, clearing the cavity corner by 1.87 mm and the outer
+# corner by 2.02 mm. With WALL_BOTTOM = 3.00 the bottom corners mirror them.
+SCREWS = [(SCREW_EDGE_X,           SCREW_EDGE_Y),
+          (OUTER_W - SCREW_EDGE_X, SCREW_EDGE_Y),
+          (SCREW_EDGE_X,           OUTER_H - SCREW_EDGE_Y),
+          (OUTER_W - SCREW_EDGE_X, OUTER_H - SCREW_EDGE_Y),
+          (SCREW_MID_X,            OUTER_H / 2.0),
+          (OUTER_W - SCREW_MID_X,  OUTER_H / 2.0)]
 
 # ---- FACE PLATE -----------------------------------------------------------
 FACE_T             = 3.501         # same as the original
@@ -49,16 +71,14 @@ COUNTERBORE_D      = 6.00          # screw head recess
 COUNTERBORE_DEPTH  = 2.501         # leaves exactly 1.000 mm under the head
 
 SCREEN_W, SCREEN_H, SCREEN_R = 51.518, 39.922, 2.378
-SCREEN_CX, SCREEN_CY         = 38.40, 84.35
+SCREEN_CX, SCREEN_CY         = 38.40, WALL_BOTTOM + 79.35   # from cavity floor
 SCREEN_CHAMF_Z, SCREEN_CHAMF_OFF = 1.189, 1.4805
 
-WHEEL_D, WHEEL_CX, WHEEL_CY = 37.99, 38.40, 36.00
+WHEEL_D, WHEEL_CX, WHEEL_CY = 37.99, 38.40, WALL_BOTTOM + 31.00   # from cavity floor
 WHEEL_CHAMF_Z, WHEEL_D_OUT  = 0.884, 50.14
 
 # ---- FRAME ----------------------------------------------------------------
 FRAME_T = 14.00
-CAVITY_W, CAVITY_H, CAVITY_R = 62.20, 104.20, 6.00
-CAVITY_CX, CAVITY_CY         = 38.40, 57.10   # walls: 7.30 side / 5.00 bottom / 3.00 top
 
 JACK_D, JACK_X, JACK_Z = 10.00, 61.743, 7.29
 DOCK_W, DOCK_H, DOCK_R = 28.83, 7.94, 2.00
@@ -108,18 +128,23 @@ def prism(cs, z0, z1):
 
 def taper(cs_low, z_low, cs_high, z_high, below=0.0, above=0.0):
     """Solid running from cs_low (at z_low) to cs_high (at z_high), with
-    optional straight extensions below and above.
+    optional straight extensions below and above. Assumes cs_low fits inside
+    cs_high, which holds for every flare in this design.
 
-    Only the two thin slices go through the hull; the straight extensions are
-    unioned on afterwards. Feeding them to the hull would make the cone start
-    opening from the base of the extension instead of from z_low.
+    The two extensions need opposite treatment:
+      * the LARGE profile's extension goes into the hull. Because the profile
+        does not change along it, it cannot widen the cone below z_high.
+      * the SMALL profile's extension must stay out of the hull -- inside it,
+        the cone would start opening from the far end of the extension -- so
+        it is unioned on, overlapping the hull by OVERLAP.
+    Neither side is left to meet the hull on a coincident plane. Abutting
+    faces there can leave a zero-thickness membrane after the boolean, which
+    once sealed the dock opening shut.
     """
     out = Manifold.batch_hull([prism(cs_low,  z_low - 1e-4, z_low),
-                               prism(cs_high, z_high, z_high + 1e-4)])
+                               prism(cs_high, z_high, z_high + max(above, 1e-4))])
     if below:
-        out = out + prism(cs_low, z_low - below, z_low)
-    if above:
-        out = out + prism(cs_high, z_high, z_high + above)
+        out = out + prism(cs_low, z_low - below, z_low + OVERLAP)
     return out
 
 
@@ -139,17 +164,17 @@ def slab_y(cs, y0, y1):
 def taper_y(cs_in, cs_out, y_in, y_out, margin=3.0):
     """Opening that grows from the inner face (y_in) to the outer one (y_out).
 
-    The rotation maps the extrusion axis z onto -y, so the profile placed at
-    z=0 is always the one on the LARGER y side. Straight extensions are
-    unioned on, never fed to the hull.
+    Built along +z with the small profile at z=0 and the large one at
+    z=length, then mapped onto y. Extensions follow the same rule as taper().
     """
     length = abs(y_out - y_in)
-    y_ref = max(y_in, y_out)
-    a, b = (cs_out, cs_in) if y_out > y_in else (cs_in, cs_out)
-    body = Manifold.batch_hull([prism(a, 0.0, 1e-4),
-                                prism(b, length - 1e-4, length)])
-    body = body + prism(a, -margin, 0.0) + prism(b, length, length + margin)
-    return body.rotate((90, 0, 0)).translate((0, y_ref, 0))
+    body = Manifold.batch_hull([prism(cs_in,  -1e-4, 0.0),
+                                prism(cs_out, length, length + margin)])
+    body = body + prism(cs_in, -margin, OVERLAP)
+    body = body.rotate((90, 0, 0))                # z -> -y, and cs y -> world z
+    if y_out > y_in:
+        body = body.mirror((0, 1, 0))             # z -> +y, keeping cs y -> z
+    return body.translate((0, y_in, 0))
 
 
 def wall_opening(cs, setback, y_in, y_out):
@@ -170,7 +195,7 @@ def wall_opening(cs, setback, y_in, y_out):
 # PARTS
 # ============================================================================
 
-def face():
+def face(grip=None):
     body = Manifold.batch_hull([
         prism(rrect(OUTER_W, OUTER_H, CORNER_R, OUTER_W/2, OUTER_H/2), 0, FACE_CHAMF_Z),
         prism(rrect(OUTER_W, OUTER_H, CORNER_R, OUTER_W/2, OUTER_H/2)
@@ -189,6 +214,11 @@ def face():
                   FACE_T, below=WHEEL_CHAMF_Z + 2.0, above=2.0)
 
     body = body - screen - wheel
+    # The grip scallop is copied in from the original mesh, so it has to go in
+    # BEFORE the screws are cut: its boxes overlap the bottom corner holes, and
+    # cutting the screws first let the copy fill part of the pockets back in.
+    if grip:
+        body = grip(body)
     for (x, y) in SCREWS:
         body = body - Manifold.cylinder(FACE_T + 4, SCREW_D/2, SCREW_D/2, 0, False)\
                               .translate((x, y, -2))
@@ -225,13 +255,15 @@ def frame():
     return body
 
 
-def rear():
+def rear(grip=None):
     z_chamf = REAR_T - REAR_CHAMF_RISE
     body = Manifold.batch_hull([
         prism(rrect(OUTER_W, OUTER_H, CORNER_R, OUTER_W/2, OUTER_H/2), 0, z_chamf),
         prism(rrect(OUTER_W, OUTER_H, CORNER_R, OUTER_W/2, OUTER_H/2)
               .offset(-REAR_CHAMF_SETBACK, JoinType.Round), REAR_T - 1e-4, REAR_T),
     ])
+    if grip:                                      # before the screws, see face()
+        body = grip(body)
     for (x, y) in SCREWS:
         body = body - Manifold.cylinder(REAR_T + 4, SCREW_D/2, SCREW_D/2, 0, False)\
                               .translate((x, y, -2))
@@ -312,9 +344,12 @@ if __name__ == '__main__':
         ('rear',        rear,  'originals/simple-ipod-case-rear.stl', REAR_T - 3.500, REAR_T),
     ]
     for name, build, original, dz, z_top in parts:
-        man = build()
         if original:
-            man = apply_grip_scallops(man, os.path.join(base, original), dz, z_top)
+            src = os.path.join(base, original)
+            man = build(grip=lambda b, src=src, dz=dz, z_top=z_top:
+                        apply_grip_scallops(b, src, dz, z_top))
+        else:
+            man = build()
         path = os.path.join(out_dir, f'simple-ipod-case-{name}-v2.stl')
         ntri = save_stl(man, path)
         bb = man.bounding_box()
