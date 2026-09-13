@@ -106,10 +106,10 @@ pass again.
 
 | part | original | pockets only | thin waist + pads |
 |---|---|---|---|
-| face | 15.99 cm³ | 15.61 cm³ | 14.11 cm³ |
+| face | 15.99 cm³ | 15.61 cm³ | 14.06 cm³ |
 | frame | 27.43 cm³ | 18.42 cm³ | 16.19 cm³ |
 | rear | 41.39 cm³ | 28.89 cm³ | 26.18 cm³ |
-| **total** | **84.81 cm³** | **62.92 cm³** | **56.48 cm³** |
+| **total** | **84.81 cm³** | **62.92 cm³** | **56.43 cm³** |
 
 A third less material than the original design. All three parts are
 verified watertight, with the waist's wall measured at exactly 3.00 mm to
@@ -165,39 +165,50 @@ unit's switch is what it matches; if yours does not line up, adjust
 
 ## Hardware
 
-- 4 × M3 × 20 mm screws (cap or button head, Ø5.5 max)
+- 4 × M3 × 20 mm button-head screws (ISO 7380: Ø5.7 head, 1.65 mm tall, sits below the
+  face in the 2.5 mm deep Ø6.0 counterbore). A socket-cap head (ISO 4762, 3.0 mm tall)
+  also fits but stands about 0.5 mm proud.
 - 4 × M3 hex nuts (5.5 mm across flats)
 
-### Nut pockets
+### Corner screw pockets
 
-The corner screws sit so close to the rounded corners that each hex nut pocket
-in the rear plate used to leave a **0.33 mm** wall to the outside — thinner
-than one extrusion line, right where the nut bears when the screw is
-tightened. Thickening it would take squarer corners or screws moved towards
-the cavity, and both change the frame.
+The corner screws sit so close to the rounded corners that the pockets around
+them used to leave walls to the outside thinner than an extrusion line: **0.33
+mm** at each hex nut pocket in the rear plate, and **0.59 mm** at each
+screw-head counterbore in the face plate — right where the nut or head bears
+when the screw is tightened. Thickening them would take squarer corners or
+screws moved towards the cavity, and both change the frame.
 
-So wherever that wall would be thinner than **1.30 mm** (`NUT_WEB_MIN`: three
-0.4 mm lines plus margin), it is cut away down to the nut's own seat: each
-pocket opens to its corner through an entrance that is flat at the nut plane —
-not a slope, the same vertical cut from the seat to the outer face — 5.8 mm
-wide at the edge, with sides that meet the outline square on. Every wall left
-around a pocket is about 1.3 mm thick, and 4 of the hex's 6 corners stay
-walled, so the nut still cannot turn. The entrance's throat is 4.7 mm, narrower
-than the nut (5.5 mm across flats), so the nut cannot slide out through it
-either; it still goes in from above, as before.
+So wherever such a wall would be thinner than **1.30 mm** (`CORNER_WEB_MIN`:
+three 0.4 mm lines plus margin), it is cut away down to the pocket's own floor:
+each pocket opens to its corner through an entrance that is flat — not a
+slope, the same vertical cut from the floor to the outer face — with sides that
+meet the outline square on.
+
+| | rear nut pocket | face counterbore |
+|---|---|---|
+| floor of the entrance | nut seat, 2.5 mm above the inner face | counterbore floor, 1.0 mm above the inner face |
+| wall before | 0.33 mm | 0.59 mm |
+| walls left | ~1.3 mm | ~1.3 mm |
+
+A nut still cannot turn (4 of the hex's 6 corners stay walled) or slide out (the
+entrance's throat, 4.7 mm, is narrower than the nut's 5.5 mm), and still goes
+in from above as before. A screw head still bears on the whole counterbore
+floor, which the entrance does not touch.
 
 ## Printing
 
 | part | thickness | volume |
 |---|---|---|
-| face | 3.50 mm | 14.11 cm³ |
+| face | 3.50 mm | 14.06 cm³ |
 | frame | 14.00 mm | 16.19 cm³ |
 | rear | 5.00 mm | 26.18 cm³ |
 
 About 67 g in PLA if printed solid (was ~101 g before the weight reduction).
 
-- **Both plates:** flat side down on the bed, **no supports**. The counterbores,
-  hex pockets (with their corner entrances) and rear pocket open upwards, and
+- **Both plates:** flat side down on the bed, **no supports**. The counterbores
+  and hex pockets (both with their corner entrances) and the rear pocket open
+  upwards, and
   every bevel (sides, pocket rim, pocket floor) narrows as it rises, so none of
   them overhangs. The waist's thin sections need no support either — they are
   just a thinner wall, not an enclosed cavity.
@@ -217,8 +228,9 @@ python3 -m venv .venv && .venv/bin/pip install manifold3d numpy trimesh
 
 [`verify_case.py`](verify_case.py) rebuilds the three parts in memory and
 checks watertightness/topology, the waist's wall thickness, every corner
-screw's clearance, the rear pocket and hex floors, the nut pocket entrances
-(flat at the seat, walls left >= 1.2 mm, 4 hex corners still walled), the rear pocket's exact
+screw's clearance, the rear pocket and hex floors, the corner entrances of the
+nut pockets and counterbores (flat from their floor, walls left >= 1.2 mm, 4 hex
+corners still walled), the rear pocket's exact
 bevelled shape and the web it leaves to the nuts, that face and rear
 match the frame's full outline at the face that seats against it and never
 stick out past it (a full-outline comparison, not a bounding box -- the
@@ -265,7 +277,7 @@ It also does **not yet have the thin waist**: it is 4 screws (matching
 `generate_case.py`) with the frame lightened by a blind side-wall pocket,
 which is what the STLs did *before* this pass replaced it with the waist.
 Its rear pocket is straight-walled (no rim or floor bevel), and its nut
-pockets are plain hexes with the 0.33 mm wall. Modelling the
+pockets and counterbores are plain, with the 0.33 / 0.59 mm walls. Modelling the
 waist's non-convex outline in Fusion's sketch/loft API is a materially
 bigger job than the change was in `generate_case.py`, and was left out of
 this pass — ask if you want it done. The decorative edge chamfer on the

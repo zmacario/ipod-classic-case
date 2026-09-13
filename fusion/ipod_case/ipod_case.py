@@ -24,8 +24,9 @@ KNOWN DIFFERENCES FROM THE STLs
   non-convex outline to Fusion's sketch/loft API was left for a future
   pass. The rear plate's pocket (rear_pocket) is straight-walled here;
   generate_case.py bevels both its rim and its floor edge. The nut pockets
-  here are plain hexes with a 0.33 mm wall to the corner; generate_case.py
-  opens that wall into a flat entrance at the nut seat.
+  here are plain hexes with a 0.33 mm wall to the corner, and the face's
+  screw-head counterbores plain circles with a 0.59 mm one; generate_case.py
+  opens both walls into a flat entrance at the pocket's floor.
 """
 
 import adsk.core, adsk.fusion, traceback, math
