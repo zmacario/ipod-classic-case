@@ -290,8 +290,14 @@ def face(grip=None):
     return body
 
 
-def frame():
+def frame(grip=None):
     body = prism(outer_profile(), 0, FRAME_T).simplify(MESH_TOL)
+    # Before the cavity cut, screws or anything else: the grip boxes reach a
+    # little past the cavity's edge (see GRIP_BOXES), and the cavity cut
+    # that follows re-establishes it regardless of what the transplant put
+    # there, the same way it re-establishes it over whatever the waist did.
+    if grip:
+        body = grip(body)
     body = body - prism(rrect(CAVITY_W, CAVITY_H, CAVITY_R, CAVITY_CX, CAVITY_CY),
                         -2, FRAME_T + 2)
 
@@ -332,11 +338,17 @@ def rear(grip=None):
 # ============================================================================
 # SIDE GRIP SCALLOPS
 # ============================================================================
-# Both plates carry a scallop along the side edges (y ~ 10..50) that forms a
-# finger grip: a chamfer of slope 2.324 (the same as the click wheel) starting
-# at z ~ 0.82 and running to the outer face. Its ends are not circular arcs, so
-# instead of approximating the shape we transplant that region straight out of
-# the original STL. The new part then matches the original exactly there.
+# All three parts carry a scallop along the side edges (y ~ 10..50) that
+# forms a finger grip: a chamfer of slope 2.324 (the same as the click
+# wheel) starting at z ~ 0.82 and running to the outer face. Its ends are
+# not circular arcs, so instead of approximating the shape we transplant
+# that region straight out of the original STL. The new part then matches
+# the original exactly there.
+#
+# The frame needs this too, not just the plates: its own waist thins the
+# side wall right through this same y-span, and without the transplant its
+# edge sat up to ~3.8 mm inside the plates' -- an actual mismatch, not a
+# cosmetic one, since it left face and rear overhanging the frame there.
 
 def _stl_manifold(path):
     import numpy as np, struct
@@ -399,9 +411,9 @@ if __name__ == '__main__':
     out_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(base, 'stl')
 
     parts = [
-        ('face',        face,  'originals/simple-ipod-case-face.stl', FACE_T - 3.501, FACE_T),
-        ('thick-frame', frame, None,                        0.0,            FRAME_T),
-        ('rear',        rear,  'originals/simple-ipod-case-rear.stl', REAR_T - 3.500, REAR_T),
+        ('face',        face,  'originals/simple-ipod-case-face.stl',        FACE_T - 3.501, FACE_T),
+        ('thick-frame', frame, 'originals/simple-ipod-case-thick-frame.stl', FRAME_T - 14.0, FRAME_T),
+        ('rear',        rear,  'originals/simple-ipod-case-rear.stl',        REAR_T - 3.500, REAR_T),
     ]
     for name, build, original, dz, z_top in parts:
         if original:
