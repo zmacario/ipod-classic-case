@@ -11,13 +11,13 @@ design is parametric — edit the numbers at the top and run it again.
 
 | | original | v2 |
 |---|---|---|
-| screws | 4 | **6** |
 | rear plate | 3.50 mm | **5.00 mm** |
 | screw length | nothing standard fitted | **M3 × 20, flush** |
 | Hold switch | no opening | **14.0 × 5.0 mm window** |
 | jack / dock / Hold openings | straight bores | **flared outwards** |
 | bottom wall | 5.00 mm | **3.00 mm**, same as the top |
 | outer size | 76.80 × 112.20 mm | **76.80 × 110.20 mm** |
+| frame side walls / rear plate | solid | **lightening pockets, ~26% less material** |
 
 ### Screw length
 
@@ -41,18 +41,37 @@ screen and click wheel to the bottom of deeper wells.
 An M3 × 20 now ends flush with the outer face, with 2.50 mm of thread engaged
 in a 2.40 mm nut. Assembled height went from 21.00 to 22.50 mm.
 
-### Six screws
+### Weight reduction
 
-The four corner screws keep their original positions. The two new ones sit at
-mid height on the side walls, 4.75 mm from the edge rather than 5.00.
+An earlier revision added two extra screws at mid height on the side walls,
+for six in total. They never had much clamping to offer — the four corners
+already hold the plates flat — and they were the design's weakest point: only
+0.97 mm of wall between the hole and the iPod cavity, the thinnest feature in
+the whole case.
 
-That 0.25 mm setback is forced. The side wall is 7.299 mm and there is only
-**1.253 mm of budget** to split between two opposing needs: the Ø6 counterbore
-must not break through the edge chamfer, and material must remain between the
-hole and the iPod cavity. It is split as 0.32 mm and 0.97 mm.
+Back to four corner screws, the entire span between them on each side wall is
+free — nothing needs to be routed through it any more — so two blind pockets
+now use that space instead:
 
-**That 0.97 mm wall is the thinnest feature in the design.** It is the first
-thing to check on a test print.
+- **Frame side walls**, pocketed from the outside, leaving 3.00 mm to the
+  cavity (the same thickness already proven by the top/bottom walls) and a
+  2.00 mm mating lip top and bottom so the face and rear plates still seat on
+  a full rim.
+- **Rear plate**, one pocket across the flat outer face, clear of the four
+  screw/nut bosses and the grip scallops, leaving 2.50 mm to the inner face
+  (the same floor thickness already proven by the hex nut pockets).
+
+| part | before | after |
+|---|---|---|
+| face | 15.99 cm³ | 15.61 cm³ |
+| frame | 27.43 cm³ | 18.42 cm³ |
+| rear | 41.39 cm³ | 28.89 cm³ |
+| **total** | **84.81 cm³** | **62.92 cm³** |
+
+About 22 cm³ less material (~26%), almost all of it from the frame and rear
+plate — the face is essentially unchanged. Both pockets are blind (nothing
+opens into the cavity or the ports) and verified hollow with the load-bearing
+walls at their intended thickness.
 
 ### Flared openings
 
@@ -81,8 +100,7 @@ The iPod cavity does not change, so **the whole case is 2.0 mm shorter**, and
 all three parts change with it. Everything positioned against the iPod — the
 cavity, the screen window, the click wheel, the jack and the Hold window — is
 measured from the cavity floor and stays exactly where it was relative to the
-device. The two mid screws move 1.0 mm to stay centred, and the side grip
-scallop keeps its distance from the bottom edge.
+device, and the side grip scallop keeps its distance from the bottom edge.
 
 The dock flare still fits, with 1.13 mm of straight bore ahead of it. The one
 trade-off is the material bridging the dock cutout: it is now 3 mm deep
@@ -104,23 +122,24 @@ unit's switch is what it matches; if yours does not line up, adjust
 
 ## Hardware
 
-- 6 × M3 × 20 mm screws (cap or button head, Ø5.5 max)
-- 6 × M3 hex nuts (5.5 mm across flats)
+- 4 × M3 × 20 mm screws (cap or button head, Ø5.5 max)
+- 4 × M3 hex nuts (5.5 mm across flats)
 
 ## Printing
 
 | part | thickness | volume |
 |---|---|---|
-| face | 3.50 mm | 15.5 cm³ |
-| frame | 14.00 mm | 25.6 cm³ |
-| rear | 5.00 mm | 40.6 cm³ |
+| face | 3.50 mm | 15.61 cm³ |
+| frame | 14.00 mm | 18.42 cm³ |
+| rear | 5.00 mm | 28.89 cm³ |
 
-About 101 g in PLA if printed solid.
+About 75 g in PLA if printed solid (was ~101 g before the lightening pockets).
 
-- **Both plates:** flat side down on the bed, **no supports**. The counterbores
-  and hex pockets open upwards, so nothing overhangs.
+- **Both plates:** flat side down on the bed, **no supports**. The counterbores,
+  hex pockets and lightening pockets all open upwards, so nothing overhangs.
 - **Frame:** stands on the bed. It needs a 28.8 mm bridge over the dock cutout
-  and a 14 mm one over the Hold window. No supports needed on most printers.
+  and a 14 mm one over the Hold window; the side pockets' own lids are only
+  4.3 mm wide, trivial for any printer. No supports needed on most printers.
 - The frame's port positions are not symmetric through the thickness (jack at
   7.29, dock at 7.70 of 14), so keep the STL's z=0 face towards the same plate
   every time.
@@ -139,7 +158,8 @@ that region straight out of the original mesh. Without those files the parts
 still generate, but with plain side edges.
 
 All three parts come out watertight, with consistent winding and the expected
-topology (genus 8 / 10 / 6 — one handle per through-hole).
+topology (genus 6 / 8 / 4 — one handle per through-hole; the lightening
+pockets are blind, so they add none).
 
 ## Fusion model
 

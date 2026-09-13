@@ -4,10 +4,10 @@ Parametric generator for the iPod Classic case - v2
 
 Rebuilds the three parts from dimensions measured off the original STLs, with
 these changes:
-  * 6 screws instead of 4
   * 5.00 mm rear plate, so an M3 x 20 screw ends flush
   * opening for the Hold switch
   * flared (countersunk) wall openings for jack, dock and Hold
+  * lightening pockets in the frame's side walls and the rear plate
 
 All dimensions in millimetres. Edit the parameters and run again:
 
@@ -44,24 +44,40 @@ CAVITY_CX = OUTER_W / 2.0
 CAVITY_CY = WALL_BOTTOM + CAVITY_H / 2.0
 
 # ---- screws ---------------------------------------------------------------
+# Back to 4 corner screws: the 2 mid ones only ever had 0.97 mm of wall to
+# the cavity, and giving up that thin, fragile pair is what makes the side
+# wall pockets below possible -- with no screw to route past, the whole span
+# between the corners is free to hollow out.
 SCREW_D = 3.15                     # M3 clearance hole
-# The 4 corner screws keep their original position. The 2 new ones, at mid
-# height on the side walls, sit 0.25 mm further in: the side wall is 7.299 mm
-# and there is only 1.253 mm of budget to split between the counterbore
-# clearing the edge chamfer and the wall left over to the iPod cavity.
-# At x=4.75 that budget lands as 0.32 mm and 0.97 mm.
-SCREW_EDGE_X = 5.00                # corner screws, from the side edges
-SCREW_EDGE_Y = 4.50                # corner screws, from the top/bottom edges
-SCREW_MID_X  = 4.75                # mid side-wall screws, from the side edges
+SCREW_EDGE_X = 5.00                # from the side edges
+SCREW_EDGE_Y = 4.50                # from the top/bottom edges
 # SCREW_EDGE_Y = 4.50 suits a 3.00 mm end wall: it is where the original top
 # corners already sat, clearing the cavity corner by 1.87 mm and the outer
 # corner by 2.02 mm. With WALL_BOTTOM = 3.00 the bottom corners mirror them.
 SCREWS = [(SCREW_EDGE_X,           SCREW_EDGE_Y),
           (OUTER_W - SCREW_EDGE_X, SCREW_EDGE_Y),
           (SCREW_EDGE_X,           OUTER_H - SCREW_EDGE_Y),
-          (OUTER_W - SCREW_EDGE_X, OUTER_H - SCREW_EDGE_Y),
-          (SCREW_MID_X,            OUTER_H / 2.0),
-          (OUTER_W - SCREW_MID_X,  OUTER_H / 2.0)]
+          (OUTER_W - SCREW_EDGE_X, OUTER_H - SCREW_EDGE_Y)]
+
+# ---- weight reduction: lightening pockets ---------------------------------
+# Blind pockets cut from the outside, well clear of every screw, nut and the
+# grip scallops, so the fastening points and mating surfaces keep their full
+# strength. Both leave the same floor thickness already proven elsewhere in
+# the design (the 3.00 mm top/bottom walls, the 2.50 mm hex nut web).
+
+# Frame side walls: pocketed from each outer face, leaving FRAME_POCKET_KEEP
+# to the cavity and a FRAME_POCKET_LIP mating lip top and bottom so the face
+# and rear plates still seat on a full rim.
+FRAME_POCKET_KEEP  = 3.00
+FRAME_POCKET_LIP   = 2.00
+FRAME_POCKET_CLEAR = 6.00          # clearance kept beyond each screw hole
+
+# Rear plate: one big pocket in the flat outer face, leaving a rim clear of
+# the 4 corner screws/nuts (plus REAR_POCKET_CLEAR beyond each hex nut) and
+# of the grip scallops, and REAR_POCKET_KEEP of material to the inner face.
+REAR_POCKET_KEEP  = 2.50
+REAR_POCKET_CLEAR = 3.00
+REAR_POCKET_R     = 4.00           # pocket corner radius
 
 # ---- FACE PLATE -----------------------------------------------------------
 FACE_T             = 3.501         # same as the original
@@ -177,6 +193,32 @@ def taper_y(cs_in, cs_out, y_in, y_out, margin=3.0):
     return body.translate((0, y_in, 0))
 
 
+def frame_pocket():
+    """Blind pocket on the outer face of each side wall (see FRAME_POCKET_*).
+    Only possible with 4 screws: with the mid ones gone, the whole span
+    between the corner screws is plain wall with nothing routed through it."""
+    side_wall = (OUTER_W - CAVITY_W) / 2.0
+    depth = side_wall - FRAME_POCKET_KEEP
+    y0 = SCREW_EDGE_Y + SCREW_D/2.0 + FRAME_POCKET_CLEAR
+    y1 = OUTER_H - y0
+    z0, z1 = FRAME_POCKET_LIP, FRAME_T - FRAME_POCKET_LIP
+    box = Manifold.cube((depth + 1.0, y1 - y0, z1 - z0))
+    return box.translate((-1.0, y0, z0)) + box.translate((OUTER_W - depth, y0, z0))
+
+
+def rear_pocket():
+    """Single pocket in the rear plate's flat outer face (see REAR_POCKET_*),
+    sized to clear the 4 hex nut bosses and the grip scallops on its own."""
+    hex_rc = HEX_AF / math.sqrt(3.0)             # hex centre -> vertex
+    x0 = SCREW_EDGE_X + hex_rc + REAR_POCKET_CLEAR
+    x1 = OUTER_W - x0
+    y0 = SCREW_EDGE_Y + hex_rc + REAR_POCKET_CLEAR
+    y1 = OUTER_H - y0
+    cs = rrect(x1 - x0, y1 - y0, REAR_POCKET_R, (x0 + x1)/2.0, (y0 + y1)/2.0)
+    depth = REAR_T - REAR_POCKET_KEEP
+    return prism(cs, REAR_T - depth, REAR_T + 1.0)
+
+
 def wall_opening(cs, setback, y_in, y_out):
     """Wall opening with a flared mouth. `setback` is how much it grows per
     side at the outer face; the straight bore before the flare comes out of
@@ -236,6 +278,7 @@ def frame():
     for (x, y) in SCREWS:
         body = body - Manifold.cylinder(FRAME_T + 4, SCREW_D/2, SCREW_D/2, 0, False)\
                               .translate((x, y, -2))
+    body = body - frame_pocket()
 
     y_top = CAVITY_CY + CAVITY_H/2.0     # inner face of the top wall
     y_bot = CAVITY_CY - CAVITY_H/2.0     # inner face of the bottom wall
@@ -269,6 +312,7 @@ def rear(grip=None):
                               .translate((x, y, -2))
         body = body - Manifold.extrude(hexagon(HEX_AF, x, y), HEX_DEPTH + 2)\
                               .translate((0, 0, REAR_T - HEX_DEPTH))
+    body = body - rear_pocket()
     return body
 
 # ============================================================================
