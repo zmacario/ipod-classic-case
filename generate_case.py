@@ -44,7 +44,7 @@ WALL_BOTTOM = 3.00                 # was 5.00 on the original design
 # wall thins down to WALL_SIDE: a local pad restores the outer width only
 # within PAD_R of each corner, the same trick as the iPhone 13 case's frame,
 # which thickens only around its screws instead of carrying full wall
-# thickness all the way round. See outer_profile()/outer_body() below.
+# thickness all the way round. See outer_profile() below.
 OUTER_W   = 76.80
 OUTER_H   = CAVITY_H + WALL_TOP + WALL_BOTTOM
 CORNER_R  = 7.50                   # plan-view corner radius, and the pads' anchor
@@ -89,8 +89,6 @@ REAR_POCKET_R     = 4.00           # pocket corner radius
 
 # ---- FACE PLATE -----------------------------------------------------------
 FACE_T             = 3.501         # same as the original
-FACE_CHAMF_Z       = 1.679         # height where the edge chamfer starts
-FACE_CHAMF_SETBACK = 1.471         # chamfer setback at the outer face
 COUNTERBORE_D      = 6.00          # screw head recess
 COUNTERBORE_DEPTH  = 2.501         # leaves exactly 1.000 mm under the head
 
@@ -131,8 +129,6 @@ HOLD = dict(w=14.0, h=5.0, x=21.84, z=7.29, r=1.5)
 
 # ---- REAR PLATE -----------------------------------------------------------
 REAR_T             = 5.000         # was 3.50; thickened so an M3x20 ends flush
-REAR_CHAMF_RISE    = 1.599         # height of the edge chamfer
-REAR_CHAMF_SETBACK = 1.141         # chamfer setback at the outer face
 HEX_AF             = 5.846         # hex socket across flats (M3 nut = 5.5)
 HEX_DEPTH          = 2.500         # nut pocket depth
 
@@ -234,32 +230,6 @@ def outer_profile(inset=0.0):
     return out
 
 
-def outer_body(z_top, chamf_z, setback, steps=10):
-    """Extrudes the waisted outer profile from 0 to z_top, with the top
-    chamfered inward by `setback` above `chamf_z`.
-
-    A hull-based taper (as used everywhere else for a chamfer) needs a
-    convex profile -- Manifold.batch_hull always returns something convex,
-    so hulling this non-convex waist would fill it back in. Decomposing it
-    into convex pieces and hulling each one separately does not work either:
-    unioning the results left a degenerate seam wherever two pieces'
-    tapers met (a jack/Hold cut through it came out non-manifold).
-
-    So the chamfer is approximated as a stack of `steps` straight,
-    progressively-inset slabs -- no hull anywhere, since a plain extrusion
-    never cares whether its profile is convex. Each slab is a strict subset
-    of the one below it (the profile only ever shrinks), so overlapping it
-    down by OVERLAP is always safe, the same reasoning as in taper(). At
-    1-2 mm of chamfer height this reads as a smooth bevel once printed."""
-    body = prism(outer_profile(), 0, chamf_z + OVERLAP)
-    for i in range(1, steps + 1):
-        z0 = chamf_z + (z_top - chamf_z) * (i - 1) / steps
-        z1 = chamf_z + (z_top - chamf_z) * i / steps
-        inset = setback * i / steps
-        body = body + prism(outer_profile(inset=inset), z0 - OVERLAP, z1)
-    return body
-
-
 def rear_pocket():
     """Single pocket in the rear plate's flat outer face (see REAR_POCKET_*),
     sized to clear the 4 hex nut bosses and the grip scallops on its own."""
@@ -292,7 +262,7 @@ def wall_opening(cs, setback, y_in, y_out):
 # ============================================================================
 
 def face(grip=None):
-    body = outer_body(FACE_T, FACE_CHAMF_Z, FACE_CHAMF_SETBACK)
+    body = prism(outer_profile(), 0, FACE_T).simplify(MESH_TOL)
 
     screen = taper(rrect(SCREEN_W, SCREEN_H, SCREEN_R, SCREEN_CX, SCREEN_CY),
                    SCREEN_CHAMF_Z,
@@ -348,8 +318,7 @@ def frame():
 
 
 def rear(grip=None):
-    z_chamf = REAR_T - REAR_CHAMF_RISE
-    body = outer_body(REAR_T, z_chamf, REAR_CHAMF_SETBACK)
+    body = prism(outer_profile(), 0, REAR_T).simplify(MESH_TOL)
     if grip:                                      # before the screws, see face()
         body = grip(body)
     for (x, y) in SCREWS:
