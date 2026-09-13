@@ -48,8 +48,15 @@ WALL_TOP, WALL_BOTTOM        = 3.0, 3.0          # bottom was 5.0 originally
 W, RC = 76.8, 7.5
 H     = CAVITY_H + WALL_TOP + WALL_BOTTOM        # 110.2
 SCREW_D        = 3.15
-SCREWS = [(5.00, 4.50), (W - 5.00, 4.50), (5.00, H - 4.50), (W - 5.00, H - 4.50),
-          (4.75, H / 2.0), (W - 4.75, H / 2.0)]     # 4 corners + 2 mid side wall
+SCREW_EDGE_X, SCREW_EDGE_Y = 5.00, 4.50
+SCREWS = [(SCREW_EDGE_X, SCREW_EDGE_Y), (W - SCREW_EDGE_X, SCREW_EDGE_Y),
+          (SCREW_EDGE_X, H - SCREW_EDGE_Y), (W - SCREW_EDGE_X, H - SCREW_EDGE_Y)]
+
+# Weight-reduction pockets: possible only with 4 screws, since dropping the
+# mid pair frees the whole span between the corners on each side wall. Same
+# derivation and floor thicknesses as generate_case.py.
+FRAME_POCKET_KEEP, FRAME_POCKET_LIP, FRAME_POCKET_CLEAR = 3.00, 2.00, 6.00
+REAR_POCKET_KEEP,  REAR_POCKET_CLEAR, REAR_POCKET_R      = 2.50, 3.00, 4.00
 
 FACE_T, FACE_CHAMF_Z, FACE_CHAMF_SETBACK = 3.501, 1.679, 1.471
 COUNTERBORE_D, COUNTERBORE_DEPTH           = 6.0, 2.501
@@ -272,6 +279,38 @@ def screw_holes_cut(comp, body, t_expr, counterbore=None, hex_socket=None):
             extrude(comp, sk3.profiles.item(i), '{} + 1 mm'.format(hex_socket['p']), CUT, body)
 
 
+def frame_pocket(comp, body):
+    """Blind pocket on the outer face of each side wall (see FRAME_POCKET_*
+    at the top). Leaves FRAME_POCKET_KEEP of wall to the cavity and a
+    FRAME_POCKET_LIP mating lip top and bottom."""
+    side_wall = (W - CAVITY['w']) / 2.0
+    depth = side_wall - FRAME_POCKET_KEEP
+    y0 = SCREW_EDGE_Y + SCREW_D/2.0 + FRAME_POCKET_CLEAR
+    y1 = H - y0
+    sk = comp.sketches.add(plane_xy(comp, '{} mm'.format(FRAME_POCKET_LIP)))
+    L = sk.sketchCurves.sketchLines
+    for x0 in (0.0, W - depth):
+        pts = [(x0, y0), (x0 + depth, y0), (x0 + depth, y1), (x0, y1)]
+        for i in range(4):
+            L.addByTwoPoints(P3(*pts[i]), P3(*pts[(i + 1) % 4]))
+    for i in range(sk.profiles.count):
+        extrude(comp, sk.profiles.item(i),
+                'frame_t - {} mm'.format(2*FRAME_POCKET_LIP), CUT, body)
+
+
+def rear_pocket(comp, body):
+    """Single pocket in the rear plate's flat outer face (see REAR_POCKET_*),
+    sized to clear the 4 hex nut bosses and the grip scallops on its own."""
+    hex_rc = HEX_AF / math.sqrt(3.0)              # hex centre -> vertex
+    x0 = SCREW_EDGE_X + hex_rc + REAR_POCKET_CLEAR
+    x1 = W - x0
+    y0 = SCREW_EDGE_Y + hex_rc + REAR_POCKET_CLEAR
+    y1 = H - y0
+    sk = comp.sketches.add(plane_xy(comp, '{} mm'.format(REAR_POCKET_KEEP)))
+    p = rrect(sk, x1 - x0, y1 - y0, REAR_POCKET_R, (x0 + x1)/2.0, (y0 + y1)/2.0)
+    extrude(comp, p, 'rear_t - {} mm + 1 mm'.format(REAR_POCKET_KEEP), CUT, body)
+
+
 def build_face(root):
     comp = root.occurrences.addNewComponent(adsk.core.Matrix3D.create()).component
     comp.name = 'face'
@@ -310,6 +349,7 @@ def build_rear(root):
                   'rear_t - {} mm'.format(REAR_CHAMF_RISE), REAR_T-REAR_CHAMF_RISE, REAR_CHAMF_SETBACK)
     grip_scallop(comp, body, 'rear_t', REAR_T)
     screw_holes_cut(comp, body, 'rear_t', hex_socket=dict(af=HEX_AF, p='hex_depth'))
+    rear_pocket(comp, body)
     return comp
 
 
@@ -347,6 +387,8 @@ def build_frame(root):
         sk2.sketchCurves.sketchCircles.addByCenterRadius(P3(x, y), SCREW_D*MM/2.0)
     for i in range(sk2.profiles.count):
         extrude(comp, sk2.profiles.item(i), 'frame_t + 2 mm', CUT, body, start='-1 mm')
+
+    frame_pocket(comp, body)
     return comp
 
 
