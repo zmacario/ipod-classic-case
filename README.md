@@ -7,6 +7,8 @@ openings, a thick middle frame that holds the device, and a plain rear plate.
 Everything is generated from [`generate_case.py`](generate_case.py), so the
 design is parametric — edit the numbers at the top and run it again.
 
+![Assembly of the three v2 parts: exploded order, both assembled sides, and a screw head and a nut in their corner pockets](assembly.png)
+
 ## What changed from the original
 
 | | original | v2 |
@@ -223,13 +225,25 @@ About 67 g in PLA if printed solid (was ~101 g before the weight reduction).
   7.29, dock at 7.70, Hold at 8.29 of 14, measured from the rear plate), so the
   STL's z=0 face — the one on the bed — always goes against the rear plate.
 
+## Assembly
+
+1. Put the iPod into the frame with its screen towards the frame's printed top
+   (the side that faced up on the printer).
+2. Lay the face plate on that side, counterbores outwards, and the rear plate on
+   the other, flat side against the frame and pockets outwards.
+3. Push the four M3 × 20 screws in through the face plate's counterbores. Hold
+   an M3 nut in each hex pocket of the rear plate and drive the screw from the
+   face: the hex keeps the nut from turning. Tighten until snug, not hard —
+   the plates are PLA. Each screw ends flush with the rear plate's outer face.
+
 ## Regenerating
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install manifold3d numpy trimesh
+python3 -m venv .venv && .venv/bin/pip install manifold3d numpy trimesh matplotlib
 .venv/bin/python3 generate_case.py            # writes into stl/
 .venv/bin/python3 verify_case.py              # checks the result
 .venv/bin/python3 fusion/verify_fusion.py     # checks the Fusion script still matches
+.venv/bin/python3 assembly.py                 # redraws assembly.png
 ```
 
 [`verify_case.py`](verify_case.py) rebuilds the three parts in memory and
