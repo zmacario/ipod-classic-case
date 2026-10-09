@@ -304,3 +304,8 @@ entrances, a thicker waist...) to confirm the check still catches it. The
 stand-in cannot catch a mistake in how the real API behaves, so the first run
 inside Fusion is the real test; if it stops with an error, the message names
 the part it was building.
+
+## Licence
+
+The scripts — `generate_case.py`, `verify_case.py`, `assembly.py` and the Fusion
+scripts under `fusion/` — are released under the [MIT licence](LICENSE).
